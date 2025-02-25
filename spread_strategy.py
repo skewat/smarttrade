@@ -156,10 +156,9 @@ def generate_order(df,ltp):
 
 def connect_angeloone():
     ''' Connect to AngelOne using API '''
-
-    api_key = 'TPQapFn5'
+    api_key = 'TPQtruixhcaocnoacpFn5' # Add API key
     username = 'AAAE362329'
-    pwd = '1697'
+    pwd = '178316d97'     # ass password
     smartApi = SmartConnect(api_key)
     
     try:
