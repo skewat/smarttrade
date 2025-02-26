@@ -1,14 +1,5 @@
 #! /c/Users/SURYAKANT/AppData/Local/Microsoft/WindowsApps/python
 
-
-"""
-Assumptions and rules .. 
-1. Order is placed every Thurshday at 10:15
-
-
-"""
-
-
 import pandas as pd
 import numpy as np
 from SmartApi import SmartConnect
@@ -21,6 +12,7 @@ import os
 import json
 import symbol_token
 import payout
+from login_details import *
 from datetime import datetime, timedelta
 import pprint 
 
@@ -162,9 +154,6 @@ def generate_order(df,ltp):
 
 def connect_angeloone():
     ''' Connect to AngelOne using API '''
-    api_key = 'TPQtruixhcaocnoacpFn5' # Add API key
-    username = 'AAAE362329'
-    pwd = '178316d97'     # ass password
     smartApi = SmartConnect(api_key)
     
     try:
