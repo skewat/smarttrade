@@ -18,7 +18,9 @@ import pyotp
 import sys
 import signal
 import os
+import json
 import symbol_token
+import payout
 from datetime import datetime, timedelta
 import pprint 
 
@@ -107,26 +109,30 @@ def get_sma_trend(data):
     
     return df['Trend'].iloc[-1]
 
-def active_trade():
-    # Check if There is alredy any active trade
-    active_orders = read_active_orders()
-    if active_orders:
-        return True
-    else :
-        return False
+#def active_trade():
+#    # Check if There is alredy any active trade
+#    active_orders = read_active_orders()
+#    if active_orders:
+#        return active_orders
+#    else :
+#        return None
 
-def read_active_orders():
+def active_trade():
     """Reads the active orders file and returns a set of processed dates."""
     if not os.path.exists(ORDER_FILE):
-        return set()
+        return None
     
     with open(ORDER_FILE, "r") as file:
-        return set(line.strip() for line in file)
+        loaded_data = json.load(file)
+        return loaded_data
+        #return set(line.strip() for line in file)
 
 def write_active_order(data):
     """Writes a new order date to the active orders file."""
+    json_string = json.dumps(data)
+
     with open(ORDER_FILE, "a") as file:
-        file.write(str(data))
+        file.write(json_string)
 
 def generate_order(df,ltp):
     """
@@ -389,7 +395,56 @@ def get_order_status(smart_api, order_id):
                 return order["status"]  # Possible statuses: "COMPLETE", "PENDING", "CANCELLED", etc.
     return "Order not found"
 
-    
+def get_pnl_state(positions,active_trades):
+    pnl_total = 0
+    for order in active_trades.keys():
+        trade_data = active_trades[order]
+        tradingsymbol = trade_data['tradingsymbol']
+        for position in positions['data'] :
+            if position['tradingsymbol'] == tradingsymbol :
+                pprint.pprint(position)
+                pnl_total = pnl_total + float(position['unrealised'])
+    return pnl_total
+
+def spread_payoff(positions,active_trades):
+    active_positions = []
+    for order in active_trades.keys():
+        trade_data = active_trades[order]
+        tradingsymbol = trade_data['tradingsymbol']
+        for position in positions['data'] :
+            if position['tradingsymbol'] == tradingsymbol :
+
+                trade = {}
+                if int(position['cfbuyqty']) :
+                    trade['strike'] = float(position['strikeprice'])
+                    trade['premium'] = float(position['cfbuyavgprice'])
+                    trade['quantity'] = float(position['cfbuyqty'])
+                    trade['type'] = tradingsymbol[-2:].strip()
+                else:
+                    trade['strike'] = float(position['strikeprice'])
+                    trade['premium'] = float(position['cfsellavgprice'])
+                    trade['quantity'] = float(position['cfsellqty'])*-1
+                    trade['type'] = tradingsymbol[-2:].strip()
+                active_positions.append(trade)
+    print(active_positions)
+    p_range = (active_positions[0]['strike']*0.9,active_positions[0]['strike']*1.1)
+    max_profit,max_loss = payout.calculate_max_min_payout(active_positions,p_range)
+    return max_profit, max_loss
+
+def do_adjustment():
+    pass
+
+def exit_trades():
+    pass
+
+def get_open_positions(smart_api):    
+    positions = smart_api.position()
+    active_trades = active_trade()
+    pnl = get_pnl_state(positions,active_trades)
+    max_profit,max_loss = spread_payoff(positions,active_trades)
+    print(pnl,int(max_profit))
+    print(pnl,'-',int(max_loss))
+    print(f"------>  Max profit:{max_profit}, Max loss :{max_loss}")
     
 # Main highlevel logic
 def main(martApi):
@@ -399,6 +454,7 @@ def main(martApi):
     #Remove 'not' after test
     if active_trade():
         print("There is active trade...")
+        get_open_positions(smartApi)    
         pass
         #Exit workflow (exit on target , expiry , SL or do adjustments in this workflow)
     else :
