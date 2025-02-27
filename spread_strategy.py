@@ -10,11 +10,16 @@ import sys
 import signal
 import os
 import json
+from datetime import datetime, timedelta
+import pprint 
+
 import symbol_token
 import payout
 from login_details import *
-from datetime import datetime, timedelta
-import pprint 
+
+# Set print display preferance
+pd.set_option('display.max_rows',None)
+pd.set_option('display.width', None)
 
 # List of holidays (YYYY-MM-DD format)
 HOLIDAYS = {"2025-01-01",
@@ -37,9 +42,48 @@ HOLIDAYS = {"2025-01-01",
     "2025-11-05",
     "2025-12-25"}
 
-# Set print display preferance
-pd.set_option('display.max_rows',None)
-pd.set_option('display.width', None)
+class OptionPosition:
+    def __init__(self, data):
+        """
+        Initialize the OptionPosition object with the given dictionary.
+        """
+        self.data = data
+
+    def get(self, key):
+        """
+        Get the value of a given attribute.
+        """
+        return self.data.get(key)
+
+    def set(self, key, value):
+        """
+        Set the value of a given attribute.
+        """
+        if key in self.data:
+            self.data[key] = value
+        else:
+            raise KeyError(f"Invalid key: {key}")
+
+    def __repr__(self):
+        """
+        String representation of the OptionPosition object.
+        """
+        return str(self.data)
+
+
+# Example Usage
+data = {
+     'expiry': '',
+     'lotsize': '75',
+     'order_type': '', # BUY / SELL
+     'opt_type': '',  # PE/CE
+     'quantity': '0',
+     'strike': '',
+     'symbolname': 'NIFTY',
+     'symbol_token': '',
+     'symbol': ''
+}
+
 
 #File where previous oreders are stored
 ORDER_FILE = "active_orders.txt"
@@ -117,14 +161,29 @@ def active_trade():
     with open(ORDER_FILE, "r") as file:
         loaded_data = json.load(file)
         return loaded_data
-        #return set(line.strip() for line in file)
 
 def write_active_order(data):
     """Writes a new order date to the active orders file."""
-    json_string = json.dumps(data)
+    new_order = json.dumps(data)
+    # Check if file exists
+    if os.path.exists(ORDER_FILE):
+        # Read existing orders
+        with open(ORDER_FILE, "r") as file:
+            try:
+                orders = json.load(file)
+            except json.JSONDecodeError:
+                orders = []  # If file is empty, initialize an empty list
+    else:
+        orders = []
 
-    with open(ORDER_FILE, "a") as file:
-        file.write(json_string)
+    # Append the new order
+    orders.append(new_order)
+
+    # Write updated orders back to file
+    with open(ORDER_FILE, "w") as file:
+        json.dump(orders, file, indent=4)
+
+    print(f"New order added to {ORDER_FILE}")
 
 def generate_order(df,ltp):
     """
@@ -180,6 +239,7 @@ def connect_angeloone():
         res = smartApi.getProfile(refreshToken)
         smartApi.generateToken(refreshToken)
         res = res['data']['exchanges']
+        print("\n\n\n")
         return smartApi
 
 
@@ -254,6 +314,7 @@ def logout(smartAPi):
     # logout from AngenOne API
     try:
         logout = smartApi.terminateSession('AAAE362329')
+        print("\n\n\n")
         logger.info("Logout Successfull")
     except Exception as e:
         logger.exception(f"Logout failed: {e}")
@@ -306,73 +367,46 @@ def get_symbol_token(name, expiry, strike_atm, strike_otm,opt_type):
     else:
         return atm_token, otm_token, atm_symbol, otm_symbol
 
+def take_entry_positions(smartApi,positions):
+    # Its expected that in the positions list , BUY orders are added before sell 
+    # so that margin issues do not occur
+    for position in positions :
+        place_order(smartApi,position)
 
-def place_order(smartApi,atm_token,otm_token,atm_symbol,otm_symbol):
 
-    # Angel One Symbol Tokens (Fetch using API)
-    symbol_tokens = {
-        atm_symbol: atm_token,  
-        otm_symbol: otm_token  
-    }
-    
-    # Define ROBO Order Legs
-    order_legs = [
-        {
+
+def place_order(smartApi, position):
+    order = {
             "variety": "NORMAL", # ROBO NORMAL STOPLOSS AMO
-            "tradingsymbol": atm_symbol,
-            "symboltoken": symbol_tokens[atm_symbol],
-            "transactiontype": "BUY",
+            "tradingsymbol": position.get('symbol'),
+            "symboltoken": position.get('symbol_token'),
+            "transactiontype": position.get("order_type"),
             "exchange": "NFO",
             "ordertype": "MARKET",
-            #"ordertype": "LIMIT",
             "producttype": "CARRYFORWARD",
             "duration": "DAY",
-            #"price": 5.0,  # Replace with PRICE in case of LIMIT order
-            "quantity": 75,
-            'ordertag': 'STRATEGY'
-        },
-        {
-            "variety": "NORMAL",
-            "tradingsymbol": otm_symbol,
-            "symboltoken": symbol_tokens[otm_symbol],
-            "transactiontype": "SELL",
-            "exchange": "NFO",
-            "ordertype": "MARKET",
-            #"ordertype": "LIMIT",
-            "producttype": "CARRYFORWARD",
-            "duration": "DAY",
-            #"price": 150.0,  # Replace with PRICE in case of LIMIT order type
-            "quantity": 75,
+            "quantity":  position.get("quantity"),
             'ordertag': 'STRATEGY'
         }
-    ]
     
     # Place Orders
     order_status = {}
     order_id = []
-    for order in order_legs:
-        response = smartApi.placeOrderFullResponse(order)
-        #print(order)
-        if response['status'] == True:
-            oid = response['data']['orderid']
-            order_id.append(oid)
-        #print(f"Order Response for {order['tradingsymbol']}: {response}")
-        #print(order_id)
-        order_status[oid] = order
-    for oid in order_id : 
-        try: 
-            status = get_order_status(smartApi, oid) 
-            assert( status != 'Order not found')
-            assert( status != 'cancelled')
-            #assert( status != 'rejected')
-            #TBD  write only order which are with status as complete
-            order_status[oid]['status'] = status 
-        except AssertionError as e:
-            print(f"Order {str(order_status[oid])} is not complete ")
-            print(f"AssertionError: {e}")
-            return None
-
-    write_active_order(order_status)
+    response = smartApi.placeOrderFullResponse(order)
+    oid = response['data']['orderid']
+    try: 
+        status = get_order_status(smartApi, oid) 
+        assert( status != 'Order not found')
+        assert( status != 'cancelled')
+        #assert( status != 'rejected')
+        #TBD  write only order which are with status as complete
+    except AssertionError as e:
+        print(f"Order {str(order_status[oid])} is not complete ")
+        print(f"AssertionError: {e}")
+        return None
+    #For debugging only
+    print(response)
+    write_active_order(order)
 
 # Function to get order status
 def get_order_status(smart_api, order_id):
@@ -385,19 +419,23 @@ def get_order_status(smart_api, order_id):
 
 def get_pnl_state(positions,active_trades):
     pnl_total = 0
-    for order in active_trades.keys():
-        trade_data = active_trades[order]
+    for j_data in active_trades:
+        #trade_data = active_trades[order]
+        trade_data = json.loads(j_data)
+
         tradingsymbol = trade_data['tradingsymbol']
         for position in positions['data'] :
             if position['tradingsymbol'] == tradingsymbol :
-                pprint.pprint(position)
                 pnl_total = pnl_total + float(position['unrealised'])
+    print(f"Current PNL : {pnl_total}")
     return pnl_total
 
 def spread_payoff(positions,active_trades):
     active_positions = []
-    for order in active_trades.keys():
-        trade_data = active_trades[order]
+    max_profit = 0
+    max_loss = 0
+    for j_order in active_trades:
+        trade_data = json.loads(j_order)
         tradingsymbol = trade_data['tradingsymbol']
         for position in positions['data'] :
             if position['tradingsymbol'] == tradingsymbol :
@@ -405,18 +443,22 @@ def spread_payoff(positions,active_trades):
                 trade = {}
                 if int(position['cfbuyqty']) :
                     trade['strike'] = float(position['strikeprice'])
+                    p_range = (trade['strike']*0.9,trade['strike']*1.1)
                     trade['premium'] = float(position['cfbuyavgprice'])
                     trade['quantity'] = float(position['cfbuyqty'])
                     trade['type'] = tradingsymbol[-2:].strip()
                 else:
                     trade['strike'] = float(position['strikeprice'])
+                    p_range = (trade['strike']*0.9,trade['strike']*1.1)
                     trade['premium'] = float(position['cfsellavgprice'])
                     trade['quantity'] = float(position['cfsellqty'])*-1
                     trade['type'] = tradingsymbol[-2:].strip()
                 active_positions.append(trade)
-    print(active_positions)
-    p_range = (active_positions[0]['strike']*0.9,active_positions[0]['strike']*1.1)
-    max_profit,max_loss = payout.calculate_max_min_payout(active_positions,p_range)
+    if active_positions:
+        max_profit,max_loss = payout.calculate_max_min_payout(active_positions,p_range)
+    else:
+        print("Anomoally: There are no trading symbols common between active trades(local) and real positions with broker")
+        print("Fix the active trade list if trades are exited manually")
     return max_profit, max_loss
 
 def do_adjustment():
@@ -430,48 +472,109 @@ def get_open_positions(smart_api):
     active_trades = active_trade()
     pnl = get_pnl_state(positions,active_trades)
     max_profit,max_loss = spread_payoff(positions,active_trades)
-    print(pnl,int(max_profit))
-    print(pnl,'-',int(max_loss))
-    print(f"------>  Max profit:{max_profit}, Max loss :{max_loss}")
+    print(f"Max profit:{max_profit}, Max loss :{max_loss}")
     
-# Main highlevel logic
-def main(martApi):
+def create_call_spread_position(smartApi, lots):
+    position1 = OptionPosition(data.copy())  # Use .copy() to avoid shared state
+    position2 = OptionPosition(data.copy())
 
     ltp = int(get_ltp(smartApi))
 
-    #Remove 'not' after test
+    # get expiry which is 7 days away. Its just next thurshday which is not a holiday and alyeast 7 days away.
+    next_expiry = get_next_expiry()
+    position1.set('expiry', next_expiry)
+    position2.set('expiry', next_expiry)
+    
+    # get strike price near LTP
+    strike_atm = round(ltp / 50) * 50
+    position1.set('strike', strike_atm)
+
+    # get strike price 200 point OTM
+    strike_otm = strike_atm + 200
+    position2.set('strike', strike_otm)
+
+    position1.set('opt_type', "CE")
+    position2.set('opt_type', "CE")
+
+    # get trading symbol token for this expiry and strike price
+    atm_token, otm_token, atm_symbol, otm_symbol = get_symbol_token('NIFTY',next_expiry,strike_atm,strike_otm,"CE")
+    position1.set('symbol_token', atm_token)
+    position2.set('symbol_token', otm_token)
+    position1.set('symbol', atm_symbol)
+    position2.set('symbol', otm_symbol)
+    position1.set('order_type', "BUY")
+    position2.set('order_type', "SELL")
+
+    position1.set('quantity', 75*lots)
+    position2.set('quantity', 75*lots)
+    return position1,position2
+
+
+def create_put_spread_position(smartApi,lots):
+    position1 = OptionPosition(data.copy())  # Use .copy() to avoid shared state
+    position2 = OptionPosition(data.copy())
+
+    ltp = int(get_ltp(smartApi))
+
+    # get expiry which is 7 days away. Its just next thurshday which is not a holiday and alyeast 7 days away.
+    next_expiry = get_next_expiry()
+    position1.set('expiry', next_expiry)
+    position2.set('expiry', next_expiry)
+    
+    # get strike price near LTP
+    strike_atm = round(ltp / 50) * 50
+    position1.set('strike', strike_atm)
+
+    # get strike price 200 point OTM
+    strike_otm = strike_atm - 200
+    position2.set('strike', strike_otm)
+
+    position1.set('opt_type', "PE")
+    position2.set('opt_type', "PE")
+
+    # get trading symbol token for this expiry and strike price
+    atm_token, otm_token, atm_symbol, otm_symbol = get_symbol_token('NIFTY',next_expiry,strike_atm,strike_otm,'PE')
+
+    position1.set('symbol_token', atm_token)
+    position2.set('symbol_token', otm_token)
+    position1.set('symbol', atm_symbol)
+    position2.set('symbol', otm_symbol)
+
+    position1.set('order_type', "BUY")
+    position2.set('order_type', "SELL")
+    position1.set('quantity', 75*lots)
+    position2.set('quantity', 75*lots)
+    return position1,position2
+
+def create_spread_position(smartApi,trend, lots):
+    if trend == "UP":
+        p1,p2 = create_call_spread_position(smartApi,lots)
+    else :
+        p1,p2 = create_put_spread_position(smartApi,lots)
+    return [p1,p2]
+
+# Main highlevel logic
+def main(martApi):
+    LOTS = 1
     if active_trade():
+        #Exit workflow (exit on target , expiry , SL or do adjustments in this workflow)
         print("There is active trade...")
         get_open_positions(smartApi)    
-        pass
-        #Exit workflow (exit on target , expiry , SL or do adjustments in this workflow)
     else :
         # Entry workflow 
         df = fetch_ohlc(smartApi)
     
         # Identify trends
         trend = get_sma_trend(df)
+     
+        # based on trend create Call/Put spread positions
+        positions = create_spread_position(smartApi,trend, LOTS)
 
-        # get expiry which is 7 days away.
-        next_expiry = get_next_expiry()
-
-        # get strike price neart LTP
-        strike_atm = round(ltp / 50) * 50
-
-        # get strike price 200 point OTM
-        if trend == 'UP' :
-            strike_otm = strike_atm + 200
-            opt_type = "CE"
-        else:
-            strike_otm = strike_atm - 200
-            opt_type = "PE"
-
-        # get trading symbol token for this expiry and strike price
-        atm_token, otm_token, atm_symbol, otm_symbol = get_symbol_token('NIFTY',next_expiry,strike_atm,strike_otm,opt_type)
 
         # Generate trade
-        place_order(smartApi,atm_token,otm_token,atm_symbol,otm_symbol)
-        #print(generate_order(sma,ltp))
+        #place_order(smartApi,atm_token,otm_token,atm_symbol,otm_symbol)
+
+        take_entry_positions(smartApi,positions)
 
 if __name__ == "__main__":
     smartApi = connect_angeloone()
