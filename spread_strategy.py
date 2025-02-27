@@ -15,6 +15,12 @@ import pprint
 
 import symbol_token
 import payout
+
+'''Create login_details.py file with your credentials, below are example content
+api_key = 'TgDJkhyT'
+username = 'ABCD123456'
+wd = '5379'
+'''
 from login_details import *
 
 # Set print display preferance
