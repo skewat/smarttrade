@@ -13,6 +13,7 @@ def calculate_payout(option_positions, stock_prices):
     Returns:
     np.array: Total payout for each stock price.
     """
+    print('======>',option_positions, stock_prices)
     total_payout = np.zeros_like(stock_prices)
 
     for position in option_positions:
@@ -24,9 +25,11 @@ def calculate_payout(option_positions, stock_prices):
         if option_type == 'call' or option_type == 'CE' :
             # Payout = max(0, stock price - strike price) - premium
             payouts = np.maximum(0, stock_prices - strike_price) - premium
+            print('CE....',payouts)
         elif option_type == 'put' or  option_type == "PE" :
             # Payout = max(0, strike price - stock price) - premium
             payouts = np.maximum(0, strike_price - stock_prices) - premium
+            print('PE....',payouts)
         else:
             raise ValueError("Option type must be 'call' or 'put'.")
 

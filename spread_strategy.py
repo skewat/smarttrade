@@ -10,6 +10,7 @@ import sys
 import signal
 import os
 import json
+import re
 from datetime import datetime, timedelta
 import pprint 
 
@@ -93,6 +94,7 @@ data = {
 
 #File where previous oreders are stored
 ORDER_FILE = "active_orders.txt"
+ADJUSTMENT_FILE = "adjustment_tages.txt"
 
 # Set testing to read data for back testing instead of from API
 TESTING = True
@@ -151,13 +153,6 @@ def get_sma_trend(data):
     
     return df['Trend'].iloc[-1]
 
-#def active_trade():
-#    # Check if There is alredy any active trade
-#    active_orders = read_active_orders()
-#    if active_orders:
-#        return active_orders
-#    else :
-#        return None
 
 def active_trade():
     """Reads the active orders file and returns a set of processed dates."""
@@ -167,6 +162,33 @@ def active_trade():
     with open(ORDER_FILE, "r") as file:
         loaded_data = json.load(file)
         return loaded_data
+
+def remove_active_order(data):
+    """Writes a new order date to the active orders file."""
+    new_order = json.dumps(data)
+    symbol = data['tradingsymbol']
+    # Check if file exists
+    if os.path.exists(ORDER_FILE):
+        # Read existing orders
+        with open(ORDER_FILE, "r") as file:
+            try:
+                orders = json.load(file)
+            except json.JSONDecodeError:
+                orders = []  # If file is empty, initialize an empty list
+    else:
+        orders = []
+
+    # remove the order
+    new_orders = []
+    for j_order in orders :
+        order = json.loads(j_order)
+
+        if order['tradingsymbol'] == symbol :
+            continue
+        new_orders.append(j_order)
+    # Write updated orders back to file
+    with open(ORDER_FILE, "w") as file:
+        json.dump(new_orders, file, indent=4)
 
 def write_active_order(data):
     """Writes a new order date to the active orders file."""
@@ -348,6 +370,7 @@ def get_ltp(smartApi):
 # Authenticate and fetch historical data
 def fetch_ohlc(smartApi):
     data = fetch_data(smartApi)
+    print(data)
     df = pd.DataFrame(data["data"], columns=["Datetime", "Open", "High", "Low", "Close", "Volume"])
     df["Datetime"] = pd.to_datetime(df["Datetime"])
     df.set_index("Datetime", inplace=True)
@@ -377,7 +400,8 @@ def take_entry_positions(smartApi,positions):
     # Its expected that in the positions list , BUY orders are added before sell 
     # so that margin issues do not occur
     for position in positions :
-        place_order(smartApi,position)
+        order = place_order(smartApi,position)
+        write_active_order(order)
 
 
 
@@ -412,7 +436,7 @@ def place_order(smartApi, position):
         return None
     #For debugging only
     print(response)
-    write_active_order(order)
+    return order
 
 # Function to get order status
 def get_order_status(smart_api, order_id):
@@ -424,11 +448,9 @@ def get_order_status(smart_api, order_id):
     return "Order not found"
 
 def get_pnl_state(positions,active_trades):
-    pnl_total = 0
+    pnl_total = -1950
     for j_data in active_trades:
-        #trade_data = active_trades[order]
         trade_data = json.loads(j_data)
-
         tradingsymbol = trade_data['tradingsymbol']
         for position in positions['data'] :
             if position['tradingsymbol'] == tradingsymbol :
@@ -467,17 +489,126 @@ def spread_payoff(positions,active_trades):
         print("Fix the active trade list if trades are exited manually")
     return max_profit, max_loss
 
-def do_adjustment():
-    pass
+def spread_adjustment(lots = 1):
+    # Move SELL leg closer to BUY leg by 50 points
+    position1 = OptionPosition(data.copy())  # Use .copy() to avoid shared state
+    position2 = OptionPosition(data.copy())
 
-def exit_trades():
-    pass
 
-def get_open_positions(smart_api):    
+    active_trades = active_trade()
+    for j_data in active_trades:
+        trade_data = json.loads(j_data)
+        if trade_data['transactiontype'] == 'SELL' :
+            existing_leg = match = trade_data
+
+    # Expiry should be same 
+    tradingsymbol = trade_data['tradingsymbol']
+    match = re.search(r'[A-Z]+(\d{2}[A-Z]{3}\d{2})\d{5}(PE|CE)', tradingsymbol)
+    expiry = match.group(1)  # Extract expiry part
+    position1.set('expiry', expiry)
+    position2.set('expiry', expiry)
+    
+    # get strike price near LTP
+    match = re.search(r'(\d+)(PE|CE)', trade_data['tradingsymbol'])
+    strike = int(match.group(1)[2:]) 
+    position1.set('strike', strike)
+
+    # get strike price 200 point OTM
+    opt_type =  trade_data['tradingsymbol'][-2:]
+    if  opt_type == "CE":
+        strike_2 = strike - 50
+    else:
+        strike_2 = strike + 50
+    position2.set('strike', strike_2)
+
+    position1.set('opt_type', opt_type)
+    position2.set('opt_type', opt_type)
+
+    # get trading symbol token for this expiry and strike price
+    existing_token, new_token, existing_symbol, new_symbol = get_symbol_token('NIFTY',expiry,strike,strike_2, opt_type)
+
+    position1.set('symbol_token', existing_token)
+    position2.set('symbol_token', new_token)
+    position1.set('symbol', existing_symbol)
+    position2.set('symbol', new_symbol)
+
+    position1.set('order_type', "BUY")
+    position2.set('order_type', "SELL")
+    position1.set('quantity', 75*lots)
+    position2.set('quantity', 75*lots)
+    
+    order = place_order(smartApi, position1)
+    remove_active_order(order)
+    order = place_order(smartApi, position2)
+    write_active_order(order)
+    return True 
+
+def room_for_adjustment():
+    # Read the strike price difference between BUY and SELL leg, it should be atleast 50 points
+    strike_prices = []
+    active_trades = active_trade()
+    for j_data in active_trades:
+        trade_data = json.loads(j_data)
+
+        match = re.search(r'(\d+)(PE|CE)', trade_data['tradingsymbol'])
+        if match:
+            strike = match.group(1)[2:]  # Convert to integer
+            strike_prices.append(int(strike))
+    if len(strike_prices) == 2:
+        if abs(strike_prices[0] - strike_prices[1]) > 50:
+            print("We have room for adjustment !!")
+            return True
+        else :
+            return False
+    else :
+        #There is something wrong , as comparison ca happen on two numbers only
+        raise("Insufficient strike prices to compare")
+
+
+def adjustment_done_today():
+    ADJUSTMENT_FILE = "adjustment_tages.txt"
+
+    if not os.path.exists(ADJUSTMENT_FILE):
+        print("No adjustments done yet !!")
+        return False
+    with open(ADJUSTMENT_FILE, "r") as file:
+        try:
+            adjustment = json.load(file)
+        except json.JSONDecodeError:
+            return False 
+        print('................. To be written to a file ..........')
+        print(adjustment['date'],adjustment['exited'],adjustment['entered'])
+        if "date" == 'Date':
+            return True
+        else :
+            return False
+
+def process_adjustments(max_loss, pnl):
+    # If we are in 25% of max loss , do adjustments 
+    # Only one adjustments a day , max till 50 point away from ATM strike
+    print("Processing adjustments ")
+    if pnl > 0 :
+        return False
+    if abs(max_loss*0.25) < abs(pnl) and not adjustment_done_today() and room_for_adjustment():
+        return spread_adjustment()
+
+def exit_trades(max_profit, max_loss, pnl):
+    # Exit all positions if we are at more than 50% of max loss 
+    if max_profit*0.5 < pnl :
+        print("Exit order as target acheived ..")
+    elif max_loss*0.5 > pnl :
+        print("Exit order as Stop Loss hit ..",max_loss*0.5,pnl)
+    else :
+        return 
+
+def process_open_positions(smart_api):    
     positions = smart_api.position()
     active_trades = active_trade()
     pnl = get_pnl_state(positions,active_trades)
     max_profit,max_loss = spread_payoff(positions,active_trades)
+#    if not process_adjustments(max_loss, pnl):
+#        # if adjustment done ignore exit evaluation that time
+#        exit_trades(max_profit,max_loss,pnl)
     print(f"Max profit:{max_profit}, Max loss :{max_loss}")
     
 def create_call_spread_position(smartApi, lots):
@@ -565,7 +696,7 @@ def main(martApi):
     if active_trade():
         #Exit workflow (exit on target , expiry , SL or do adjustments in this workflow)
         print("There is active trade...")
-        get_open_positions(smartApi)    
+        process_open_positions(smartApi)    
     else :
         # Entry workflow 
         df = fetch_ohlc(smartApi)
@@ -578,8 +709,6 @@ def main(martApi):
 
 
         # Generate trade
-        #place_order(smartApi,atm_token,otm_token,atm_symbol,otm_symbol)
-
         take_entry_positions(smartApi,positions)
 
 if __name__ == "__main__":
