@@ -213,31 +213,6 @@ def write_active_order(data):
 
     print(f"New order added to {ORDER_FILE}")
 
-def generate_order(df,ltp):
-    """
-    Checks if the current timestamp is Thursday at 10:15 and generates an order.
-    
-    """
-
-    if df.empty:
-        return "No Data in DataFrame"
-
-    # Get the latest row
-    latest_row = df.iloc[-1]
-    latest_timestamp = latest_row.name  # Since index is DateTime
-    trend = latest_row['Trend'].upper()
-
-    # Check if it's Thursday and time is 10:15 AM or later
-    if TESTING or ( latest_timestamp.weekday() == 3 and latest_timestamp.strftime('%H:%M') >= '10:15'):
-        order_type = 'CE' if trend == 'UP' else 'PE'
-
-        # Store today's order
-        write_active_order(latest_row)
-
-        return f"Placing {order_type} order at {latest_timestamp}"
-
-    return "No Order"
-
 
 def connect_angeloone():
     ''' Connect to AngelOne using API '''
@@ -369,7 +344,6 @@ def get_ltp(smartApi):
 # Authenticate and fetch historical data
 def fetch_ohlc(smartApi):
     data = fetch_data(smartApi)
-    print(data)
     df = pd.DataFrame(data["data"], columns=["Datetime", "Open", "High", "Low", "Close", "Volume"])
     df["Datetime"] = pd.to_datetime(df["Datetime"])
     df.set_index("Datetime", inplace=True)
@@ -395,13 +369,20 @@ def get_symbol_token(name, expiry, strike_atm, strike_otm,opt_type):
     else:
         return atm_token, otm_token, atm_symbol, otm_symbol
 
+def exit_positions(smartApi,positions):
+    # Its expected that in the positions list , SELL orders are added before BUY 
+    # so that margin issues do not occur
+    for position in positions :
+        order = place_order(smartApi,position)
+        remove_active_order(order)
+
+
 def take_entry_positions(smartApi,positions):
-    # Its expected that in the positions list , BUY orders are added before sell 
+    # Its expected that in the positions list , BUY orders are added before RSELL
     # so that margin issues do not occur
     for position in positions :
         order = place_order(smartApi,position)
         write_active_order(order)
-
 
 
 def place_order(smartApi, position):
@@ -422,6 +403,7 @@ def place_order(smartApi, position):
     order_status = {}
     order_id = []
     #print("Not adding real order .. its mock")
+    #print(order)
     #return order
     response = smartApi.placeOrderFullResponse(order)
     oid = response['data']['orderid']
@@ -492,6 +474,65 @@ def spread_payoff(positions,active_trades):
         print("Fix the active trade list if trades are exited manually")
     return max_profit, max_loss
 
+def process_exit_trades(smart_api,active_trades, positions, lots = 1):
+    position1 = OptionPosition(data.copy())  # Use .copy() to avoid shared state
+    position2 = OptionPosition(data.copy())
+    trades = []
+    for j_data in active_trades:
+        trade_data = json.loads(j_data)
+        trades.append(trade_data)
+
+    # both legs have same Expiry
+    tradingsymbol = trades[0]['tradingsymbol']
+    match = re.search(r'[A-Z]+(\d{2}[A-Z]{3}\d{2})\d{5}(PE|CE)', tradingsymbol)
+    expiry1 = match.group(1)  # Extract expiry part
+
+    tradingsymbol = trades[1]['tradingsymbol']
+    match = re.search(r'[A-Z]+(\d{2}[A-Z]{3}\d{2})\d{5}(PE|CE)', tradingsymbol)
+    expiry2 = match.group(1)  # Extract expiry part
+
+    position1.set('expiry', expiry1)
+    position2.set('expiry', expiry2)
+    
+    # get strike price
+    match = re.search(r'(\d+)(PE|CE)', trades[0]['tradingsymbol'])
+    strike1 = int(match.group(1)[2:]) 
+    position1.set('strike', strike1)
+
+    match = re.search(r'(\d+)(PE|CE)', trades[1]['tradingsymbol'])
+    strike2 = int(match.group(1)[2:]) 
+    position2.set('strike', strike2)
+
+    # get option type 
+    position1.set('opt_type', trades[0]['tradingsymbol'][-2:])
+    position2.set('opt_type', trades[1]['tradingsymbol'][-2:])
+
+    # get trading symbol token 
+    position1.set('symbol_token', trades[0]['symboltoken'])
+    position2.set('symbol_token', trades[1]['symboltoken'])
+
+    # get trading symbol
+    position1.set('symbol', trades[0]['tradingsymbol'])
+    position2.set('symbol', trades[1]['tradingsymbol'])
+
+    # swam tranction type
+    if trades[0]['transactiontype'] == "BUY":
+        position1.set('order_type', 'SELL')
+    else:
+        position1.set('order_type', 'BUY')
+
+    if trades[1]['transactiontype'] == "BUY":
+        position2.set('order_type', 'SELL')
+    else:
+        position2.set('order_type', 'BUY')
+
+    # get tranction quantity
+    position1.set('quantity', trades[0]['quantity'])
+    position2.set('quantity', trades[1]['quantity'])
+    
+    exit_positions(smartApi,[position1,position2])
+    return True 
+
 def spread_adjustment(lots = 1):
     # Move SELL leg closer to BUY leg by 50 points
     position1 = OptionPosition(data.copy())  # Use .copy() to avoid shared state
@@ -502,7 +543,7 @@ def spread_adjustment(lots = 1):
     for j_data in active_trades:
         trade_data = json.loads(j_data)
         if trade_data['transactiontype'] == 'SELL' :
-            existing_leg = match = trade_data
+            existing_leg = trade_data
 
     # Expiry should be same 
     tradingsymbol = trade_data['tradingsymbol']
@@ -599,19 +640,22 @@ def exit_trades(max_profit, max_loss, pnl):
     # Exit all positions if we are at more than 50% of max loss 
     if max_profit*0.5 < pnl :
         print("Exit order as target acheived ..")
+        return True
     elif max_loss*0.5 > pnl :
         print("Exit order as Stop Loss hit ..",max_loss*0.5,pnl)
-    else :
-        return 
+        return True
+    return False
 
 def process_open_positions(smart_api):    
     positions = smart_api.position()
     active_trades = active_trade()
     pnl = get_pnl_state(positions,active_trades)
     max_profit,max_loss = spread_payoff(positions,active_trades)
-#    if not process_adjustments(max_loss, pnl):
-#        # if adjustment done ignore exit evaluation that time
-#        exit_trades(max_profit,max_loss,pnl)
+
+    if not process_adjustments(max_loss, pnl):
+        # if adjustment done ignore exit evaluation that time
+        if exit_trades(max_profit,max_loss,pnl):
+            process_exit_trades(smart_api,active_trades, positions)
     print(f"Max profit:{max_profit}, Max loss :{max_loss}")
     
 def create_call_spread_position(smartApi, lots):
