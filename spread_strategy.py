@@ -190,6 +190,34 @@ def remove_active_order(data):
     with open(ORDER_FILE, "w") as file:
         json.dump(new_orders, file, indent=4)
 
+def write_adjustment(adjustment_date, adjustment_exited, adjustment_entered):
+    ''' Adjustments are stored in a file '''
+    data = {
+            'date': adjustment_date,
+            'exited': adjustment_exited, # Symbol exited 
+            'entered': adjustment_entered # symbol entered
+        }
+    new_adjustement = json.dumps(data)
+    # Check if file exists
+    if os.path.exists(ADJUSTMENT_FILE):
+        # Read existing adjustements
+        with open(ADJUSTMENT_FILE, "r") as file:
+            try:
+                adjustements = json.load(file)
+            except json.JSONDecodeError:
+                adjustements = []  # If file is empty, initialize an empty list
+    else:
+        adjustements = []
+
+    # Append the new adjustement
+    adjustements.append(new_adjustement)
+
+    # Write updated adjustements back to file
+    with open(ADJUSTMENT_FILE, "w") as file:
+        json.dump(adjustements, file, indent=4)
+
+
+
 def write_active_order(data):
     """Writes a new order date to the active orders file."""
     new_order = json.dumps(data)
@@ -431,7 +459,7 @@ def get_order_status(smart_api, order_id):
     return "Order not found"
 
 def get_pnl_state(positions,active_trades):
-    pnl_total = 0
+    pnl_total = -12500
     for j_data in active_trades:
         trade_data = json.loads(j_data)
         tradingsymbol = trade_data['tradingsymbol']
@@ -531,6 +559,8 @@ def process_exit_trades(smart_api,active_trades, positions, lots = 1):
     position2.set('quantity', trades[1]['quantity'])
     
     exit_positions(smartApi,[position1,position2])
+    if os.path.exists(ADJUSTMENT_FILE):
+        os.remove(ADJUSTMENT_FILE)
     return True 
 
 def spread_adjustment(lots = 1):
@@ -585,6 +615,10 @@ def spread_adjustment(lots = 1):
     remove_active_order(order)
     order = place_order(smartApi, position2)
     write_active_order(order)
+
+    #save adjustment history
+    today = datetime.today().strftime("%d%b%y").upper()
+    write_adjustment(today, existing_symbol,new_symbol)
     return True 
 
 def room_for_adjustment():
@@ -610,31 +644,35 @@ def room_for_adjustment():
 
 
 def adjustment_done_today():
-    ADJUSTMENT_FILE = "adjustment_tages.txt"
-
+    ''' One one adjustment a day '''
     if not os.path.exists(ADJUSTMENT_FILE):
         print("No adjustments done yet !!")
         return False
     with open(ADJUSTMENT_FILE, "r") as file:
         try:
-            adjustment = json.load(file)
+            adjustments = json.load(file)
         except json.JSONDecodeError:
             return False 
-        print('................. To be written to a file ..........')
-        print(adjustment['date'],adjustment['exited'],adjustment['entered'])
-        if "date" == 'Date':
-            return True
-        else :
-            return False
+        today = datetime.today().strftime("%d%b%y").upper()
+        for rec in adjustments : 
+            record = json.loads(rec)
+            if record["date"] == today :
+                return True
+        return False
 
 def process_adjustments(max_loss, pnl):
     # If we are in 25% of max loss , do adjustments 
     # Only one adjustments a day , max till 50 point away from ATM strike
     print("Processing adjustments ")
     if pnl > 0 :
+        print("No adjustments needed , PNL is +ve")
         return False
-    if abs(max_loss*0.25) < abs(pnl) and not adjustment_done_today() and room_for_adjustment():
+    if max_loss*0.25 < pnl and not adjustment_done_today() and room_for_adjustment():
+        print("Performing adjustments..")
         return spread_adjustment()
+    else:
+        print("No Padjustments needed..")
+
 
 def exit_trades(max_profit, max_loss, pnl):
     # Exit all positions if we are at more than 50% of max loss 
