@@ -242,7 +242,6 @@ def generate_order(df,ltp):
 def connect_angeloone():
     ''' Connect to AngelOne using API '''
     smartApi = SmartConnect(api_key)
-    
     try:
         token = "YDGLN23VQ7KBI4QEY6PR2OA7TE"
         totp = pyotp.TOTP(token).now()
@@ -422,6 +421,8 @@ def place_order(smartApi, position):
     # Place Orders
     order_status = {}
     order_id = []
+    #print("Not adding real order .. its mock")
+    #return order
     response = smartApi.placeOrderFullResponse(order)
     oid = response['data']['orderid']
     try: 
@@ -448,7 +449,7 @@ def get_order_status(smart_api, order_id):
     return "Order not found"
 
 def get_pnl_state(positions,active_trades):
-    pnl_total = -1950
+    pnl_total = 0
     for j_data in active_trades:
         trade_data = json.loads(j_data)
         tradingsymbol = trade_data['tradingsymbol']
@@ -467,23 +468,25 @@ def spread_payoff(positions,active_trades):
         tradingsymbol = trade_data['tradingsymbol']
         for position in positions['data'] :
             if position['tradingsymbol'] == tradingsymbol :
-
                 trade = {}
-                if int(position['cfbuyqty']) :
+                #if position['cfbuyqty'] or position['buyqty']:
+                #if position['optiontype'] == 'PE':
+                if int(position['netqty']) > 0:
+                    
                     trade['strike'] = float(position['strikeprice'])
                     p_range = (trade['strike']*0.9,trade['strike']*1.1)
-                    trade['premium'] = float(position['cfbuyavgprice'])
-                    trade['quantity'] = float(position['cfbuyqty'])
+                    trade['premium'] = float(position['avgnetprice'])
+                    trade['quantity'] = float(position['netqty'])
                     trade['type'] = tradingsymbol[-2:].strip()
                 else:
                     trade['strike'] = float(position['strikeprice'])
                     p_range = (trade['strike']*0.9,trade['strike']*1.1)
-                    trade['premium'] = float(position['cfsellavgprice'])
-                    trade['quantity'] = float(position['cfsellqty'])*-1
+                    trade['premium'] = float(position['avgnetprice'])
+                    trade['quantity'] = float(position['netqty'])
                     trade['type'] = tradingsymbol[-2:].strip()
                 active_positions.append(trade)
     if active_positions:
-        max_profit,max_loss = payout.calculate_max_min_payout(active_positions,p_range)
+        max_profit,max_loss = payout.calculate_max_min_payout(active_positions, p_range)
     else:
         print("Anomoally: There are no trading symbols common between active trades(local) and real positions with broker")
         print("Fix the active trade list if trades are exited manually")
