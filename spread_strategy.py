@@ -459,7 +459,7 @@ def get_order_status(smart_api, order_id):
     return "Order not found"
 
 def get_pnl_state(positions,active_trades):
-    pnl_total = -12500
+    pnl_total = 0
     for j_data in active_trades:
         trade_data = json.loads(j_data)
         tradingsymbol = trade_data['tradingsymbol']
@@ -479,21 +479,11 @@ def spread_payoff(positions,active_trades):
         for position in positions['data'] :
             if position['tradingsymbol'] == tradingsymbol :
                 trade = {}
-                #if position['cfbuyqty'] or position['buyqty']:
-                #if position['optiontype'] == 'PE':
-                if int(position['netqty']) > 0:
-                    
-                    trade['strike'] = float(position['strikeprice'])
-                    p_range = (trade['strike']*0.9,trade['strike']*1.1)
-                    trade['premium'] = float(position['avgnetprice'])
-                    trade['quantity'] = float(position['netqty'])
-                    trade['type'] = tradingsymbol[-2:].strip()
-                else:
-                    trade['strike'] = float(position['strikeprice'])
-                    p_range = (trade['strike']*0.9,trade['strike']*1.1)
-                    trade['premium'] = float(position['avgnetprice'])
-                    trade['quantity'] = float(position['netqty'])
-                    trade['type'] = tradingsymbol[-2:].strip()
+                trade['strike'] = float(position['strikeprice'])
+                p_range = (trade['strike']*0.9,trade['strike']*1.1)
+                trade['premium'] = float(position['netprice'])
+                trade['quantity'] = float(position['netqty'])
+                trade['type'] = tradingsymbol[-2:].strip()
                 active_positions.append(trade)
     if active_positions:
         max_profit,max_loss = payout.calculate_max_min_payout(active_positions, p_range)
