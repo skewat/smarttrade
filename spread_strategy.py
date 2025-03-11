@@ -11,6 +11,7 @@ import signal
 import os
 import json
 import re
+import logging
 from datetime import datetime, timedelta
 import pprint 
 
@@ -48,6 +49,15 @@ HOLIDAYS = {"2025-01-01",
     "2025-10-22",
     "2025-11-05",
     "2025-12-25"}
+
+t_events = logging.getLogger("Logger1")
+t_events.setLevel(logging.DEBUG)
+handler1 = logging.FileHandler("trading-events.txt")
+formatter1 = logging.Formatter('%(asctime)s - %(message)s')
+handler1.setFormatter(formatter1)
+t_events.addHandler(handler1)
+
+
 
 class OptionPosition:
     def __init__(self, data):
@@ -97,8 +107,8 @@ ORDER_FILE = "active_orders.txt"
 ADJUSTMENT_FILE = "adjustment_tages.txt"
 
 # Set testing to read data for back testing instead of from API
-TESTING = True
-
+PAPER_TRADING = True
+BACK_TESTING = True
 
 # Determine trend based on SMA_5 and SMA_21
 def get_trend(row):
@@ -189,6 +199,8 @@ def remove_active_order(data):
     # Write updated orders back to file
     with open(ORDER_FILE, "w") as file:
         json.dump(new_orders, file, indent=4)
+    message = f"Exit: {data['tradingsymbol']}  {data['transactiontype']}  {data['quantity']} {data['netprice']}"
+    t_events.info(message)
 
 def write_adjustment(adjustment_date, adjustment_exited, adjustment_entered):
     ''' Adjustments are stored in a file '''
@@ -238,7 +250,8 @@ def write_active_order(data):
     # Write updated orders back to file
     with open(ORDER_FILE, "w") as file:
         json.dump(orders, file, indent=4)
-
+    message = f"Entry: {data['tradingsymbol']}  {data['transactiontype']}  {data['quantity']} {data['netprice']}"
+    t_events.info(message)
     print(f"New order added to {ORDER_FILE}")
 
 
@@ -326,13 +339,10 @@ def fetch_data(smartApi):
     try:
         historicParam = {
             "exchange": "NSE",
-            #"symboltoken": "99926009",
             "symboltoken": "99926000",
             "interval": "ONE_HOUR",
-            #"fromdate": "2025-01-12 09:20",
             "fromdate": FROMDATE,
             "todate": TODATE
-            #"todate": "2025-02-19 10:20"
         }
         data = smartApi.getCandleData(historicParam)
         return data
@@ -357,12 +367,13 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-def get_ltp(smartApi):
+def get_ltp(smartApi,token='99926000',symbol='NIFTY',exchange='NSE'):
     ''' Get LTP for Nifty50 Index '''
     signal.signal(signal.SIGINT, signal_handler)
-    stock_symbol_token_NIFTY = '99926000' # NIFTY token for NSE
-    exchange_NIFTY = 'NSE'
-    trading_symbol_NIFTY = 'NIFTY'
+    #stock_symbol_token_NIFTY = '99926000' # NIFTY token for NSE
+    stock_symbol_token_NIFTY = token
+    exchange_NIFTY = exchange
+    trading_symbol_NIFTY = symbol
     stock_data_NIFTY = smartApi.ltpData(exchange_NIFTY, trading_symbol_NIFTY, stock_symbol_token_NIFTY)
 
     return (stock_data_NIFTY['data']['ltp'])
@@ -408,6 +419,8 @@ def exit_positions(smartApi,positions):
 def take_entry_positions(smartApi,positions):
     # Its expected that in the positions list , BUY orders are added before RSELL
     # so that margin issues do not occur
+    message = f"Event: Taking Entry"
+    t_events.info(message)
     for position in positions :
         order = place_order(smartApi,position)
         write_active_order(order)
@@ -430,9 +443,12 @@ def place_order(smartApi, position):
     # Place Orders
     order_status = {}
     order_id = []
-    #print("Not adding real order .. its mock")
-    #print(order)
-    #return order
+    if PAPER_TRADING:
+        # IN Paper trading since positins will not be with broker , so insert a netprice .
+        order['netprice'] = get_ltp(smartApi,token= order['symboltoken'],symbol=order['tradingsymbol'],exchange=order["exchange"])
+        print("Not adding real order .. its mock/paper trading")
+        #print(order)
+        return order
     response = smartApi.placeOrderFullResponse(order)
     oid = response['data']['orderid']
     try: 
@@ -446,7 +462,7 @@ def place_order(smartApi, position):
         print(f"AssertionError: {e}")
         return None
     #For debugging only
-    print(response)
+    #print(response)
     return order
 
 # Function to get order status
@@ -459,17 +475,108 @@ def get_order_status(smart_api, order_id):
     return "Order not found"
 
 def get_pnl_state(positions,active_trades):
-    pnl_total = 0
-    for j_data in active_trades:
-        trade_data = json.loads(j_data)
-        tradingsymbol = trade_data['tradingsymbol']
-        for position in positions['data'] :
-            if position['tradingsymbol'] == tradingsymbol :
-                pnl_total = pnl_total + float(position['unrealised'])
-    print(f"Current PNL : {pnl_total}")
+    pnl_total = 4799
+    if PAPER_TRADING:
+        for j_data in active_trades:
+            trade_data = json.loads(j_data)
+            tradingsymbol = trade_data['tradingsymbol']
+            for position in positions['data'] :
+                if position['tradingsymbol'] == tradingsymbol :
+                    # Calculate PNL
+                    if trade_data['transactiontype'] == 'BUY':
+                        trade_qty = trade_data['quantity']
+                    else:
+                        trade_qty = -trade_data['quantity']
+
+
+                    pnl = -((float(trade_qty) * float(trade_data['netprice'])) + (float(position['netqty']) * float(position['netprice'])))
+                    pnl_total = pnl_total + pnl
+        print(f"Paper trading - Current PNL : {pnl_total}")
+    else:        
+        for j_data in active_trades:
+            trade_data = json.loads(j_data)
+            tradingsymbol = trade_data['tradingsymbol']
+            for position in positions['data'] :
+                if position['tradingsymbol'] == tradingsymbol :
+                    pnl_total = pnl_total + float(position['unrealised'])
+        print(f"Current PNL : {pnl_total}")
     return pnl_total
 
-def spread_payoff(positions,active_trades):
+def position_papertrading(smartApi,all_active_trades):
+    expiry = ''
+    strike_price = 0
+    option_type = ''
+    positions = {'data':[]}
+
+    position_template = {'avgnetprice': '0',
+                'buyavgprice': '7.7',
+                'buyqty': '75',
+                'cfbuyamount': '0.0',
+                'cfbuyavgprice': '0.0',
+                'cfbuyqty': '0',
+                'cfsellamount': '7383.37',
+                'cfsellavgprice': '98.44',
+                'cfsellqty': '75',
+                'expirydate': '13MAR2025',
+                'instrumenttype': 'OPTIDX',
+                'lotsize': '75',
+                'ltp': '18.75',
+                'netprice': '0.0',
+                'netqty': '0',
+                'netvalue': '6805.87',
+                'optiontype': 'PE',
+                'pnl': '6805.50',
+                'precision': '2',
+                'priceden': '1.00',
+                'pricenum': '1.00',
+                'sellamount': '0.0',
+                'sellavgprice': '0.0',
+                'sellqty': '0',
+                'strikeprice': '22050.0',
+                'symbolgroup': 'XX',
+                'symbolname': 'NIFTY',
+                'symboltoken': '45443',
+                'totalbuyvalue': '577.5',
+                'totalsellavgprice': '98.44',
+                'totalsellvalue': '7383.37',
+                'tradingsymbol': 'NIFTY13MAR2522050PE',
+                'unrealised': '0.00'}
+    for order in all_active_trades :
+
+        position = position_template.copy()
+        active_trades = json.loads(order)
+        netqty = int(active_trades['quantity'])
+        if active_trades['transactiontype'] == 'BUY':
+            # In position trade type is reverse of original trade
+            position['netqty'] = -netqty
+        else:
+            position['netqty'] = netqty
+    
+        # Regex pattern
+        pattern = r'(\d{2}[A-Z]{3}\d{2})(\d+)(CE|PE)'
+        
+        # Extract details
+        match = re.search(pattern, active_trades['tradingsymbol'])
+        if match:
+            expiry = match.group(1)  # Expiry: 20MAR25
+            strike_price = match.group(2)  # Strike Price: 22550
+            option_type = match.group(3)  # Option Type: CE
+        
+        position['expirydate'] = expiry
+        position['strikeprice'] = strike_price
+        position['optiontype'] = option_type
+    
+        position['tradingsymbol'] = active_trades['tradingsymbol']
+        position['symboltoken'] = active_trades['symboltoken']
+        position['exchange'] = active_trades['exchange']
+        # IN Paper trading since positins will not be with broker , so insert a netprice when it was purchased and get LTP at time of PNL.
+        position['netprice'] = get_ltp(smartApi,token= active_trades['symboltoken'],symbol=active_trades['tradingsymbol'],exchange=active_trades['exchange'])
+        positions['data'].append(position)
+
+    return positions
+
+
+def spread_payoff(smartApi, positions,active_trades):
     active_positions = []
     max_profit = 0
     max_loss = 0
@@ -659,26 +766,39 @@ def process_adjustments(max_loss, pnl):
         return False
     if max_loss*0.25 < pnl and not adjustment_done_today() and room_for_adjustment():
         print("Performing adjustments..")
+        message = f"Event: Making adjustment to reduce loss"
+        t_events.info(message)
         return spread_adjustment()
     else:
         print("No Padjustments needed..")
+        return False
 
 
 def exit_trades(max_profit, max_loss, pnl):
     # Exit all positions if we are at more than 50% of max loss 
     if max_profit*0.5 < pnl :
         print("Exit order as target acheived ..")
+        message = f"Event: Target acheived"
+        t_events.info(message)
         return True
     elif max_loss*0.5 > pnl :
         print("Exit order as Stop Loss hit ..",max_loss*0.5,pnl)
+        message = f"Event: SL hit"
+        t_events.info(message)
         return True
     return False
 
 def process_open_positions(smart_api):    
-    positions = smart_api.position()
     active_trades = active_trade()
+    positions = smart_api.position()
+    if active_trades and PAPER_TRADING :
+        # Its paper trading , so there will not be positions in broker's DB
+        # Create a virtual position based on LTP and active trades.
+        positions = position_papertrading(smartApi, active_trades)
+        #print('Positions',positions)
+
     pnl = get_pnl_state(positions,active_trades)
-    max_profit,max_loss = spread_payoff(positions,active_trades)
+    max_profit,max_loss = spread_payoff(smartApi, positions, active_trades)
 
     if not process_adjustments(max_loss, pnl):
         # if adjustment done ignore exit evaluation that time

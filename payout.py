@@ -14,7 +14,7 @@ def calculate_payout(option_positions, stock_prices):
     np.array: Total payout for each stock price.
     """
     total_payout = np.zeros_like(stock_prices)
-    pprint.pprint(option_positions)
+    #pprint.pprint(option_positions)
 
     for position in option_positions:
         option_type = position['type']  # 'call' or 'put'
