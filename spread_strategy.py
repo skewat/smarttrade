@@ -1,4 +1,4 @@
-#! /c/Users/SURYAKANT/AppData/Local/Microsoft/WindowsApps/python
+#! /usr/bin/python3
 
 import pandas as pd
 import numpy as np
@@ -104,7 +104,7 @@ data = {
 
 #File where previous oreders are stored
 ORDER_FILE = "active_orders.txt"
-ADJUSTMENT_FILE = "adjustment_tages.txt"
+ADJUSTMENT_FILE = "adjustment_trades.txt"
 
 # Set testing to read data for back testing instead of from API
 PAPER_TRADING = True
@@ -475,7 +475,7 @@ def get_order_status(smart_api, order_id):
     return "Order not found"
 
 def get_pnl_state(positions,active_trades):
-    pnl_total = 4799
+    pnl_total =  0
     if PAPER_TRADING:
         for j_data in active_trades:
             trade_data = json.loads(j_data)
@@ -489,7 +489,7 @@ def get_pnl_state(positions,active_trades):
                         trade_qty = -trade_data['quantity']
 
 
-                    pnl = -((float(trade_qty) * float(trade_data['netprice'])) + (float(position['netqty']) * float(position['netprice'])))
+                    pnl = ((float(trade_qty) * float(trade_data['netprice'])) - (float(position['netqty']) * float(position['netprice'])))
                     pnl_total = pnl_total + pnl
         print(f"Paper trading - Current PNL : {pnl_total}")
     else:        
@@ -548,9 +548,9 @@ def position_papertrading(smartApi,all_active_trades):
         netqty = int(active_trades['quantity'])
         if active_trades['transactiontype'] == 'BUY':
             # In position trade type is reverse of original trade
-            position['netqty'] = -netqty
-        else:
             position['netqty'] = netqty
+        else:
+            position['netqty'] = -netqty
     
         # Regex pattern
         pattern = r'(\d{2}[A-Z]{3}\d{2})(\d+)(CE|PE)'
@@ -764,13 +764,13 @@ def process_adjustments(max_loss, pnl):
     if pnl > 0 :
         print("No adjustments needed , PNL is +ve")
         return False
-    if max_loss*0.25 < pnl and not adjustment_done_today() and room_for_adjustment():
+    if max_loss*0.25 > pnl and not adjustment_done_today() and room_for_adjustment():
         print("Performing adjustments..")
         message = f"Event: Making adjustment to reduce loss"
         t_events.info(message)
         return spread_adjustment()
     else:
-        print("No Padjustments needed..")
+        print("No adjustments needed..")
         return False
 
 

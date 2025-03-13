@@ -1,4 +1,4 @@
-#! /c/Users/SURYAKANT/AppData/Local/Microsoft/WindowsApps/python
+#! /usr/bin/python3
 
 import schedule
 import time
@@ -51,7 +51,7 @@ def run_spread_strategy():
         return
     try:
         logger1.info(f"{datetime.now()} - Strategy executed successfully.")
-        subprocess.run(["python","spread_strategy.py"], check=True)
+        subprocess.run(["python3","spread_strategy.py"], check=True)
     except subprocess.CalledProcessError as e:
         logger1.error(f"Error executing strategy: {e}")
 
@@ -69,10 +69,10 @@ if __name__ == "__main__":
     while True:
         now = datetime.now().strftime("%H:%M")
         if "09:20" <= now <= "15:25":
-        #if "09:20" <= now <= "22:25":
+        #if "09:20" <= now <= "15:25":
             schedule.run_pending()
             logger1.info("Run scheduled job..")
         else:
             print("Out of time window")
-        time.sleep(60)
+        time.sleep(120)
 
