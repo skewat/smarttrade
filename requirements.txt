@@ -3,3 +3,7 @@ numpy==2.0.0
 matplotlib==3.10.0
 logzero==1.7.0
 pyotp==2.8.0
+websocket
+logger
+smartapi-python
+schedule
