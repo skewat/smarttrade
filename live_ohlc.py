@@ -157,10 +157,6 @@ def signal_handler(signum, frame):
     os._exit(0)
 
 
-import smartWebSocketV2
-
-print(str(smartWebSocketV2))
-
 # Register signal handlers for CTRL+C and CTRL+Z (Linux/Unix)
 signal.signal(signal.SIGINT, signal_handler)  # Ctrl+C (works on all OS)
 if platform.system() != "Windows":
