@@ -15,6 +15,7 @@ import logging
 from datetime import datetime, timedelta
 import pprint 
 
+import supertrend
 import symbol_token
 import payout
 
@@ -108,7 +109,7 @@ ADJUSTMENT_FILE = "adjustment_trades.txt"
 
 # Set testing to read data for back testing instead of from API
 PAPER_TRADING = True
-BACK_TESTING = True
+#BACK_TESTING = True
 
 # Determine trend based on SMA_5 and SMA_21
 def get_trend(row):
@@ -156,9 +157,14 @@ def get_sma_trend(data):
     df = pd.DataFrame(data)
     
     # Calculate moving averages
-    df["SMA_5"] = df["Close"].rolling(window=5).mean()
-    df["SMA_7"] = df["Close"].rolling(window=7).mean()
-    df["SMA_21"] = df["Close"].rolling(window=21).mean()
+    if 'Close' in df.keys() :
+        close = 'Close'
+    else:
+        close = 'close'
+
+    df["SMA_5"] = df[close].rolling(window=5).mean()
+    df["SMA_7"] = df[close].rolling(window=7).mean()
+    df["SMA_21"] = df[close].rolling(window=21).mean()
     df["Trend"] = df.apply(get_trend, axis=1)
     
     return df['Trend'].iloc[-1]
@@ -303,7 +309,7 @@ def get_two_dates():
 
     # Get the second date (at least 5 working days before)
     second_working_day = latest_working_day
-    for _ in range(5):  # Move back 5 working days
+    for _ in range(25):  # Move back 5 working days
         second_working_day = get_previous_working_day(second_working_day)
 
     return latest_working_day.strftime('%Y-%m-%d'), second_working_day.strftime('%Y-%m-%d')
@@ -375,7 +381,7 @@ def get_ltp(smartApi,token='99926000',symbol='NIFTY',exchange='NSE'):
     exchange_NIFTY = exchange
     trading_symbol_NIFTY = symbol
     stock_data_NIFTY = smartApi.ltpData(exchange_NIFTY, trading_symbol_NIFTY, stock_symbol_token_NIFTY)
-
+    print(stock_data_NIFTY)
     return (stock_data_NIFTY['data']['ltp'])
 
 
@@ -401,6 +407,7 @@ def get_symbol_token(name, expiry, strike_atm, strike_otm,opt_type):
             otm_symbol = f"{name}{expiry}{strike_otm}{opt_type}"
             if i['symbol'] == atm_symbol:
                 atm_token = i['token']
+
             elif i['symbol'] == otm_symbol:
                 otm_token = i['token']
     if not atm_token or not otm_token :
@@ -895,12 +902,17 @@ def main(martApi):
     else :
         # Entry workflow 
         df = fetch_ohlc(smartApi)
-    
+         
+        # Get Super trend 
+        super_trend = supertrend.get_supertrend(df)
+
         # Identify trends
-        trend = get_sma_trend(df)
-     
+        sma_trend = get_sma_trend(df)
+        print(super_trend)
+
+
         # based on trend create Call/Put spread positions
-        positions = create_spread_position(smartApi,trend, LOTS)
+        positions = create_spread_position(smartApi,sma_trend, LOTS)
 
 
         # Generate trade
