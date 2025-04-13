@@ -163,7 +163,7 @@ if platform.system() != "Windows":
     signal.signal(signal.SIGTSTP, signal_handler)  # Ctrl+Z (Unix only)
 
 # Start WebSocket in a separate thread
-threading.Thread(target=sws.connect).start()
+#threading.Thread(target=sws.connect).start()
 #print('Control Released')
 
 time.sleep(10)
