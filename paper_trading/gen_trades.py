@@ -1,3 +1,4 @@
+#! /usr/bin/python3
 import pandas as pd
 from SmartApi import SmartConnect
 from datetime import datetime, timedelta
@@ -38,6 +39,7 @@ def write_positions_to_csv(position1, position2, filename, append):
         writer.writeheader()
         for position in positions:
             writer.writerow(position)
+    print(f"Wrote to {filename}")
 
 
 

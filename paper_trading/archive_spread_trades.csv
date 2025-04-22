@@ -1,3 +1,0 @@
-expiry,opt_type,quantity,position_type,strike,symbol_token,symbol,order_type,price
-30APR25,PE,75,ENTRY,23900,51975,NIFTY30APR2523900PE,SELL,122.75
-30APR25,PE,75,ENTRY,24100,51983,NIFTY30APR2524100PE,BUY,192.75
