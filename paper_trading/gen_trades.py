@@ -25,6 +25,22 @@ LOTSIZE = 75
 ACTIVE_TRADES_CSV = "active_spread_trades.csv"
 ARCHIVE_TRADES_CSV = "archive_spread_trades.csv"
 
+#def write_positions_to_csv(position1, position2, filename, append):
+#    # Create a list of dictionaries
+#    positions = [position1.data, position2.data]
+#
+#    # Get all field names from the first position
+#    fieldnames = positions[0].keys()
+#
+#    # Write to CSV
+#
+#    with open(filename, mode=append, newline='') as file:
+#        writer = csv.DictWriter(file, fieldnames=fieldnames)
+#        writer.writeheader()
+#        for position in positions:
+#            writer.writerow(position)
+#    print(f"Wrote to {filename}")
+
 def write_positions_to_csv(position1, position2, filename, append):
     # Create a list of dictionaries
     positions = [position1.data, position2.data]
@@ -32,15 +48,18 @@ def write_positions_to_csv(position1, position2, filename, append):
     # Get all field names from the first position
     fieldnames = positions[0].keys()
 
-    # Write to CSV
+    # Determine write mode and whether to write the header
+    mode = 'a' if append else 'w'
+    write_header = not append or not os.path.exists(filename)
 
-    with open(filename, mode=append, newline='') as file:
+    with open(filename, mode=mode, newline='') as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
-        writer.writeheader()
+
+        if write_header:
+            writer.writeheader()
+
         for position in positions:
             writer.writerow(position)
-    print(f"Wrote to {filename}")
-
 
 
 def process_spread_positions_exit(smart_api, trades ):
@@ -325,7 +344,7 @@ if __name__ == '__main__':
     if not smartApi :
         sys.exit("Failied while connecting to server")
     today = datetime.today().date()
-    data_file = f"t_nifty50_ohlc_{today}.csv"
+    data_file = f"../data/ohlc_data/t_nifty50_ohlc_{today}.csv"
     super_file = supertrend.main(data_file)
     sma_file = sma.main(super_file)
     main(smartApi, sma_file)
