@@ -357,6 +357,8 @@ if __name__ == '__main__':
         sys.exit("Failied while connecting to server")
 
     ohlc_df = till_date_ohlc_data.main(smartApi)
+    if ohlc_df.empty:
+        sys.exit('OHLC data not found...')
     super_file = supertrend.main(ohlc_df)
     sma_file = sma.main(super_file)
     main(smartApi, sma_file)

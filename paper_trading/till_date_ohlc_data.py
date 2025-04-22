@@ -4,7 +4,7 @@ import pandas as pd
 from SmartApi import SmartConnect
 from logzero import logger
 import pyotp
-import sys
+import sys,os
 import logging
 from datetime import datetime, time, timedelta
 from login_details import *
@@ -189,15 +189,17 @@ def main(smartApi):
         sys.exit("Failed while connecting to server.")
 
     today = datetime.today().date()
-    today = datetime.today().date() - timedelta(days=1)
+    # today = datetime.today().date() + timedelta(days=1)
     data_file = f"../data/ohlc_data/t_nifty50_ohlc_{today}.csv"
-
+    df = pd.DataFrame()
+    if not os.path.exists(data_file):
+        print('Todays OHLC data does not exist')
+        return df
     df = fetch_ohlc(smartApi).reset_index()
     df.columns = df.columns.str.lower()
     df['datetime'] = pd.to_datetime(df['datetime']).dt.tz_localize(None)
 
     return combine_todays_ohlc(df,data_file)
-    #logout(smartApi)
 
 if __name__ == "__main__":
     main()
