@@ -19,6 +19,7 @@ import os
 import opt_position 
 import copy 
 import csv
+import till_date_ohlc_data
 
 
 LOTSIZE = 75
@@ -69,9 +70,6 @@ def process_spread_positions_exit(smart_api, trades ):
     position1 = opt_position.OptionPosition(trades[0])
     position2 = opt_position.OptionPosition(trades[1])
 
-    print('=== Exiting ===>',position1,position2)
-
-    
     if position1.get('order_type') == 'SELL':
         position1.set('order_type', 'BUY')
         position2.set('order_type', 'SELL')
@@ -145,7 +143,6 @@ def get_ltp(smartApi,token='99926000',symbol='NIFTY',exchange='NSE'):
     exchange = exchange
     trading_symbol = symbol
     
-    print("\n\n\n\n",'=====>',exchange, trading_symbol, stock_symbol_token)
     data = smartApi.ltpData(exchange, trading_symbol, stock_symbol_token)
     return (data['data']['ltp'])
 
@@ -165,7 +162,6 @@ def debit_spread_strategy(option_expiries, spot_ltp,option_type):
         o_expiries = [ datetime.strptime(e, "%d%b%y") for e in option_expiries ]
         expiry = next((e for e in o_expiries if e > dt + timedelta(days=6)), None)
         expiry = expiry.strftime('%d%b%y').upper()
-        print("Expiry ???",expiry)
         if expiry:
             position = {
                 'strike_price_atm': int(spot_ltp // 50) * 50 ,
@@ -179,7 +175,6 @@ def debit_spread_strategy(option_expiries, spot_ltp,option_type):
         o_expiries = [ datetime.strptime(e, "%d%b%y") for e in option_expiries ]
         expiry = next((e for e in o_expiries if e > dt + timedelta(days=6)), None)
         expiry = expiry.strftime('%d%b%y').upper()
-        print("Expiry ???",expiry)
         if expiry:
             position = {
                 'strike_price_atm': int(spot_ltp // 50) * 50 ,
@@ -250,7 +245,6 @@ def new_trade(file_name, spot_ltp):
     year = datetime.now().year
     option_expiries = expiries_of_year.main(year)
     trades = debit_spread_strategy(option_expiries, spot_ltp,trade_type)
-    print("\n\n\n",trades,'<====')
     atm_t, otm_t, atm_s, otm_s = get_symbol_token('NIFTY',
                                                   trades['expiry'],
                                                   trades['strike_price_atm'], 
@@ -350,11 +344,13 @@ if __name__ == '__main__':
     smartApi = connect_angeloone()
     if not smartApi :
         sys.exit("Failied while connecting to server")
-    today = datetime.today().date()
-    today = datetime.today().date() - timedelta(days=1)
 
-    data_file = f"../data/ohlc_data/t_nifty50_ohlc_{today}.csv"
-    super_file = supertrend.main(data_file)
+    ohlc_df = till_date_ohlc_data.main(smartApi)
+
+    #today = datetime.today().date()
+    #today = datetime.today().date() - timedelta(days=1)
+    #data_file = f"../data/ohlc_data/t_nifty50_ohlc_{today}.csv"
+    super_file = supertrend.main(ohlc_df)
     sma_file = sma.main(super_file)
     main(smartApi, sma_file)
     logout(smartApi)

@@ -70,9 +70,10 @@ def get_supertrend(data):
     supertrend_positions = generate_signals(supertrend_data)
     return supertrend_positions
 
-def main(file_name):
-    data = pd.read_csv(file_name)
-    print('-'*80)
+def main(data):
+    #data = pd.read_csv(file_name)
+    #print('-'*80)
+    file_name = 'hourly_candle.csv'
     data.columns = data.columns.str.lower()
     s_file = os.path.basename(f"{file_name}")
     s_file = f"supertrend_{s_file}"

@@ -21,7 +21,7 @@ HOLIDAYS = {
     "2025-12-25"
 }
 
-def combine_todays_ohlc(existing_df, minute_csv='t_nifty50_ohlc_2025-04-16.csv'):
+def combine_todays_ohlc(existing_df, minute_csv):
     """
     Combine today's 1-minute OHLC data with existing hourly OHLC data.
 
@@ -32,11 +32,12 @@ def combine_todays_ohlc(existing_df, minute_csv='t_nifty50_ohlc_2025-04-16.csv')
     Returns:
         pd.DataFrame: Combined DataFrame with updated OHLC data.
     """
-    today = datetime.today().strftime('%Y-%m-%d')
-    if not minute_csv:
-        minute_csv = f"t_nifty50_ohlc_{today}.csv"
+    #today = datetime.today().strftime('%Y-%m-%d')
+    #if not minute_csv:
+    #    minute_csv = f"t_nifty50_ohlc_{today}.csv"
+    minute_df = pd.read_csv(minute_csv, parse_dates=['minute'])
+    minute_df.rename(columns={'minute': 'datetime'}, inplace=True)
 
-    minute_df = pd.read_csv(minute_csv, parse_dates=['datetime'])
     minute_df = minute_df[['datetime', 'open', 'high', 'low', 'close']]
     minute_df = minute_df[
         (minute_df['datetime'].dt.time >= time(9, 15)) &
@@ -182,17 +183,21 @@ def fetch_ohlc(smartApi):
     df.set_index("Datetime", inplace=True)
     return df
 
-def main():
-    smartApi = connect_angeloone()
+def main(smartApi):
+    #smartApi = connect_angeloone()
     if not smartApi:
         sys.exit("Failed while connecting to server.")
+
+    today = datetime.today().date()
+    today = datetime.today().date() - timedelta(days=1)
+    data_file = f"../data/ohlc_data/t_nifty50_ohlc_{today}.csv"
 
     df = fetch_ohlc(smartApi).reset_index()
     df.columns = df.columns.str.lower()
     df['datetime'] = pd.to_datetime(df['datetime']).dt.tz_localize(None)
 
-    combine_todays_ohlc(df)
-    logout(smartApi)
+    return combine_todays_ohlc(df,data_file)
+    #logout(smartApi)
 
 if __name__ == "__main__":
     main()
