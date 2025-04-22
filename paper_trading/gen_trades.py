@@ -1,46 +1,29 @@
 #! /usr/bin/python3
 import pandas as pd
 from SmartApi import SmartConnect
-from datetime import datetime, timedelta
-import pprint 
-import sys
+from datetime import datetime,time, timedelta
 from logzero import logger 
-import expiries_of_year
-import supertrend
-import sma
+import sys
 import os
 from login_details import *
 from logzero import logger 
-import symboltoken
 import pyotp
 import sys
 import signal
 import os
-import opt_position 
 import copy 
 import csv
+import symboltoken
+import opt_position 
 import till_date_ohlc_data
+import expiries_of_year
+import supertrend
+import sma
 
 
 LOTSIZE = 75
 ACTIVE_TRADES_CSV = "active_spread_trades.csv"
 ARCHIVE_TRADES_CSV = "archive_spread_trades.csv"
-
-#def write_positions_to_csv(position1, position2, filename, append):
-#    # Create a list of dictionaries
-#    positions = [position1.data, position2.data]
-#
-#    # Get all field names from the first position
-#    fieldnames = positions[0].keys()
-#
-#    # Write to CSV
-#
-#    with open(filename, mode=append, newline='') as file:
-#        writer = csv.DictWriter(file, fieldnames=fieldnames)
-#        writer.writeheader()
-#        for position in positions:
-#            writer.writerow(position)
-#    print(f"Wrote to {filename}")
 
 def write_positions_to_csv(position1, position2, filename, append):
     # Create a list of dictionaries
@@ -184,56 +167,59 @@ def debit_spread_strategy(option_expiries, spot_ltp,option_type):
             }
     return position
 
-def process_exit():
+def get_active_positions():
     filename = ACTIVE_TRADES_CSV
     with open(filename, mode='r', newline='') as file:
         reader = csv.DictReader(file)
         positions = [row for row in reader]
     return positions
 
-
-
-
 # Check If there is already a trade
 def is_there_existing_trade():
     if os.path.exists(ACTIVE_TRADES_CSV):
-        return True
+        df = pd.read_csv(ACTIVE_TRADES_CSV)
+        try :
+            first_opt_type = df['opt_type'].iloc[0]
+            return True
+        except :
+            sys.exit("Corrupted active trade DB file ")
     else:
         return False
 
-def trend_reversed():
-    return True
 
 # If there is already a trade
 def process_existing_trade(smart_api):
-    if trend_reversed() or is_expiryday():
-        positions = process_exit()
-        process_spread_positions_exit(smart_api, positions)
-        return
+    positions = get_active_positions()
+    process_spread_positions_exit(smart_api, positions)
 
-def get_trend(spot_indicators_df):
+def get_trend(spot_indicators_df, type="ENTRY"):
 
     # Sample: loading your CSV
     df = pd.read_csv(spot_indicators_df)
     
     # Get the last row
     last_row = df.iloc[-1]
-
-    # Check the BULLISH condition
-    if last_row['signals'] == 1 and last_row['close'] > last_row['SMA_21']:
-        return 1
-    elif last_row['signals'] == -1 and last_row['close'] < last_row['SMA_21']:
-        return -1
-    else :
-        return 0
+    if type == 'ENTRY':
+        # Check the BULLISH condition
+        if last_row['signals'] == 1 and last_row['close'] > last_row['SMA_21']:
+            return 1
+        elif last_row['signals'] == -1 and last_row['close'] < last_row['SMA_21']:
+            return -1
+        else :
+            return 0
+    elif type == 'EXIT' :
+        if last_row['signals'] == 1 :
+            return 1
+        elif last_row['signals'] == -1 :
+            return -1
 
 
 def new_trade(file_name, spot_ltp):
     ''' Process a new trade if applicable '''
-    trend = get_trend(file_name) 
+    trend = get_trend(file_name, 'ENTRY') 
     
     if trend == 1 :
-        print("Trend is Bulish..")
+        print("Trend is bullish..")
         trade_type = "CE"
     elif trend == -1 :
         print("Trend is bearish..")
@@ -330,28 +316,48 @@ def main(smart_api, file_name = None, spot_ltp = 23800):
     ''' Input is DF with inicators, here we take call if we hit trigger to take trade or exit a trade '''
     spot_ltp = get_ltp(smart_api,'99926000','NIFTY','NSE')
     if is_there_existing_trade():
+        df = pd.read_csv(ACTIVE_TRADES_CSV)
+        opt_type = df['opt_type'].iloc[0]
+        trend = get_trend(file_name, 'EXIT') 
+
+        # Get expiry from first row
+        expiry_str = df['expiry'].iloc[0]
+        # Convert expiry string to date
+        expiry_date = datetime.strptime(expiry_str, "%d%b%y").date()
+        # Get today's date
+        today = datetime.today().date()
+        # Check current time
+        current_time = datetime.now().time()
+
+        # Logic to check expiry date and time
+        if expiry_date == today and current_time >= time(14, 30):
+            process_existing_trade(smart_api)
+            print("Exited the trade on expiry ..")
+
+        if opt_type == 'CE' and trend == 1 :
+            return
+        if opt_type == 'PE' and trend == -1 :
+            return
+        # Trend have changed so exit the trade
         process_existing_trade(smart_api)
-    else:
+        print("Exited the trade ..  change in trend")
+
+    if not is_there_existing_trade():
         # Take a new trade
         trades = new_trade(file_name, spot_ltp)
         if not trades :
-            print('No trades taken .. ')
+            print('No new trades taken .. ')
             return
         position1,position2 = process_spread_positions_entry(smart_api, trades, lots = 1)
-        print(position1.data)
-        print(position2.data)
+        print(position1.data,position2.data)
+
 if __name__ == '__main__':
     smartApi = connect_angeloone()
     if not smartApi :
         sys.exit("Failied while connecting to server")
 
     ohlc_df = till_date_ohlc_data.main(smartApi)
-
-    #today = datetime.today().date()
-    #today = datetime.today().date() - timedelta(days=1)
-    #data_file = f"../data/ohlc_data/t_nifty50_ohlc_{today}.csv"
     super_file = supertrend.main(ohlc_df)
     sma_file = sma.main(super_file)
     main(smartApi, sma_file)
     logout(smartApi)
-

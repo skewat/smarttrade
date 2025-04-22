@@ -80,7 +80,6 @@ def main(data):
     #if os.path.exists(s_file):
     #    sys.exit(f" File {s_file} already exists , delete it if you want it to be recreated")
     s_data = get_supertrend(data)
-    print(s_file)
     s_data.to_csv(s_file, index=False)
     return s_file
 

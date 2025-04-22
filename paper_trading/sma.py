@@ -38,10 +38,9 @@ def main(file_name):
         data.columns = data.columns.str.lower()
         s_file = os.path.basename(f"{file_name}")
         s_file = f"sma_{s_file}"
-        #if os.path.exists(s_file):
-        #    sys.exit(f" File {s_file} already exists , delete it if you want it to be recreated")
         s_data = get_sma_trend(data)
         s_data.to_csv(s_file, index=False)
+        print(f"Filename .. {s_file}")
         return s_file
     else :
         sys.exit("Data file is needed to process ")

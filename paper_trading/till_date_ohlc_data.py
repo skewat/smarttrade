@@ -60,7 +60,7 @@ def combine_todays_ohlc(existing_df, minute_csv):
     combined_df['datetime'] = pd.to_datetime(combined_df['datetime']).dt.tz_localize(None)
     combined_df = combined_df.drop_duplicates(subset='datetime').sort_values('datetime').reset_index(drop=True)
 
-    print(combined_df)
+    #print(combined_df)
     return combined_df
 
 def connect_angeloone():
