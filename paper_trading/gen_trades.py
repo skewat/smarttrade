@@ -93,10 +93,10 @@ def process_spread_positions_exit(smart_api, trades ):
 def process_spread_positions_entry(smart_api, trades, lots = 1 ):
 
     original = opt_position.OptionPosition({'expiry':trades['expiry'],
-                                              'opt_type':trades['type'],
-                                              'quantity':lots*LOTSIZE,
-                                              'position_type':'ENTRY',
-                                              })
+                                            'opt_type':trades['type'],
+                                            'quantity':lots*LOTSIZE,
+                                            'position_type':'ENTRY',
+                                          })
 
     position1 = opt_position.OptionPosition(copy.deepcopy(original.data))
     position2 = opt_position.OptionPosition(copy.deepcopy(original.data))
@@ -236,11 +236,15 @@ def get_trend(spot_indicators_df):
 def new_trade(file_name, spot_ltp):
     ''' Process a new trade if applicable '''
     trend = get_trend(file_name) 
+    
     if trend == 1 :
+        print("Trend is Bulish..")
         trade_type = "CE"
     elif trend == -1 :
+        print("Trend is bearish..")
         trade_type = 'PE'
     else :
+        print("Trend is non decisive ..")
         return
 
     year = datetime.now().year
@@ -336,6 +340,9 @@ def main(smart_api, file_name = None, spot_ltp = 23800):
     else:
         # Take a new trade
         trades = new_trade(file_name, spot_ltp)
+        if not trades :
+            print('No trades taken .. ')
+            return
         position1,position2 = process_spread_positions_entry(smart_api, trades, lots = 1)
         print(position1.data)
         print(position2.data)
@@ -344,6 +351,8 @@ if __name__ == '__main__':
     if not smartApi :
         sys.exit("Failied while connecting to server")
     today = datetime.today().date()
+    today = datetime.today().date() - timedelta(days=1)
+
     data_file = f"../data/ohlc_data/t_nifty50_ohlc_{today}.csv"
     super_file = supertrend.main(data_file)
     sma_file = sma.main(super_file)
