@@ -42,6 +42,7 @@ class StrategyManager:
         }
 
         try:
+            return None
             response = self.smart_api.placeOrderFullResponse(order)
             order_id = response["data"]["orderid"]
             status = self._get_order_status(order_id)
@@ -61,7 +62,7 @@ class StrategyManager:
                     return order["status"]
         return "Order not found"
 
-def main(smart_api):
+def main(smart_api, positions):
 
     manager = StrategyManager(smart_api)
 
@@ -71,11 +72,12 @@ def main(smart_api):
         {"symbol": "NIFTY24APR17600PE", "symbol_token": "12346", "order_type": "SELL", "quantity": 75},
     ]
 
-    manager.take_entry_positions(sample_positions)
-    # manager.exit_positions(sample_positions)
+    manager.take_entry_positions(positions)
+    manager.exit_positions(positions)
 
 
 
 if __name__ == "__main__":
     smartApi = None
-    main(smartApi)
+    positions = []
+    main(smartApi, positions)

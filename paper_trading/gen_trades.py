@@ -24,6 +24,7 @@ import sma
 LOTSIZE = 75
 ACTIVE_TRADES_CSV = "active_spread_trades.csv"
 ARCHIVE_TRADES_CSV = "archive_spread_trades.csv"
+LIVE = True
 
 def write_positions_to_csv(position1, position2, filename, append):
     # Create a list of dictionaries
@@ -345,6 +346,8 @@ def main(smart_api, file_name = None, spot_ltp = 23800):
     if not is_there_existing_trade():
         # Take a new trade
         trades = new_trade(file_name, spot_ltp)
+        if LIVE and trades:
+            place_orders(smart_api,trades)
         if not trades :
             print('No new trades taken .. ')
             return
