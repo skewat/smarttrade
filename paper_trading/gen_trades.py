@@ -19,12 +19,13 @@ import till_date_ohlc_data
 import expiries_of_year
 import supertrend
 import sma
+import place_order
 
 
 LOTSIZE = 75
 ACTIVE_TRADES_CSV = "active_spread_trades.csv"
 ARCHIVE_TRADES_CSV = "archive_spread_trades.csv"
-LIVE = True
+LIVE = False
 
 def write_positions_to_csv(position1, position2, filename, append):
     # Create a list of dictionaries
@@ -48,9 +49,6 @@ def write_positions_to_csv(position1, position2, filename, append):
 
 
 def process_spread_positions_exit(smart_api, trades ):
-    #with open(trades_csv, mode='r') as file:
-    #    reader = csv.DictReader(file)
-    #    trades = [row for row in reader][0]
     position1 = opt_position.OptionPosition(trades[0])
     position2 = opt_position.OptionPosition(trades[1])
 
@@ -67,9 +65,13 @@ def process_spread_positions_exit(smart_api, trades ):
     position2.set('price', price2)
     position1.set('position_type','EXIT')
     position2.set('position_type', 'EXIT')
+    now = datetime.now()
+    position1.set('time_stamp',now)
+    position2.set('time_stamp',now)
     write_positions_to_csv(position1, position2, ARCHIVE_TRADES_CSV,'a')
     if os.path.exists(ACTIVE_TRADES_CSV):
        os.remove(ACTIVE_TRADES_CSV)
+    return [position1,position2]
 
 
 def process_spread_positions_entry(smart_api, trades, lots = 1 ):
@@ -115,6 +117,10 @@ def process_spread_positions_entry(smart_api, trades, lots = 1 ):
     otm_price = get_ltp(smart_api,trades['otm_token'],trades['otm_symbol'],'NFO')
     position1.set('price', otm_price)
     position2.set('price', atm_price)
+
+    now = datetime.now()
+    position1.set('time_stamp',now)
+    position2.set('time_stamp',now)
 
     write_positions_to_csv(position1, position2, ACTIVE_TRADES_CSV,'w')
     write_positions_to_csv(position1, position2, ARCHIVE_TRADES_CSV,'a')
@@ -191,8 +197,10 @@ def is_there_existing_trade():
 # If there is already a trade
 def process_existing_trade(smart_api):
     positions = get_active_positions()
-    process_spread_positions_exit(smart_api, positions)
-
+    exit_positions = process_spread_positions_exit(smart_api, positions)
+    if LIVE :
+        place_order.main(smart_api,exit_positions,'EXIT')
+   
 def get_trend(spot_indicators_df, type="ENTRY"):
 
     # Sample: loading your CSV
@@ -346,13 +354,13 @@ def main(smart_api, file_name = None, spot_ltp = 23800):
     if not is_there_existing_trade():
         # Take a new trade
         trades = new_trade(file_name, spot_ltp)
-        if LIVE and trades:
-            place_orders(smart_api,trades)
         if not trades :
             print('No new trades taken .. ')
             return
         position1,position2 = process_spread_positions_entry(smart_api, trades, lots = 1)
-        print(position1.data,position2.data)
+        if LIVE and trades:
+            place_order.main(smart_api,[position1,position2],'ENTRY')
+        print('Taking entry position',position1.data,position2.data)
 
 if __name__ == '__main__':
     smartApi = connect_angeloone()

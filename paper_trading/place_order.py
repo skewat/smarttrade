@@ -3,6 +3,7 @@
 import pandas as pd
 from SmartApi import SmartConnect
 from datetime import datetime
+import pprint 
 
 # Set pandas display preferences
 pd.set_option('display.max_rows', None)
@@ -14,14 +15,23 @@ class StrategyManager:
         self.smart_api = smart_api
 
     def take_entry_positions(self, positions):
-        print("Event: Taking Entry")
+        print("\n\nEvent: Taking Entry")
+
+        # Sort positions so that BUY orders come before SELL
+        positions = sorted(positions, key=lambda x: x.data["order_type"] != "BUY")
+
+
         for position in positions:
             order = self._place_order(position)
             if order:
                 self._write_active_order(order)
 
     def exit_positions(self, positions):
-        print("Event: Exiting Positions")
+        print("\n\nEvent: Exiting Positions")
+
+        # Sort positions so that BUY orders come before SELL
+        positions = sorted(positions, key=lambda x: x.data["order_type"] != "BUY")
+
         for position in positions:
             order = self._place_order(position)
             if order:
@@ -42,13 +52,12 @@ class StrategyManager:
         }
 
         try:
-            return None
+            pprint.pprint(order)
             response = self.smart_api.placeOrderFullResponse(order)
             order_id = response["data"]["orderid"]
             status = self._get_order_status(order_id)
             if status not in ("COMPLETE",):
                 raise Exception(f"Order status not valid: {status}")
-            print(response)
             return order
         except Exception as e:
             print(f"Order placement failed: {e}")
@@ -62,18 +71,13 @@ class StrategyManager:
                     return order["status"]
         return "Order not found"
 
-def main(smart_api, positions):
+def main(smart_api, positions,position_type='ENTRY'):
 
     manager = StrategyManager(smart_api)
-
-    # Example usage
-    sample_positions = [
-        {"symbol": "NIFTY24APR17600CE", "symbol_token": "12345", "order_type": "BUY", "quantity": 75},
-        {"symbol": "NIFTY24APR17600PE", "symbol_token": "12346", "order_type": "SELL", "quantity": 75},
-    ]
-
-    manager.take_entry_positions(positions)
-    manager.exit_positions(positions)
+    if position_type == 'ENTRY' :
+        manager.take_entry_positions(positions)
+    if position_type == 'EXIT' :
+        manager.exit_positions(positions)
 
 
 
