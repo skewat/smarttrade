@@ -1,0 +1,2 @@
+PAPER_TRADING = False
+OPTION_BUYING = True

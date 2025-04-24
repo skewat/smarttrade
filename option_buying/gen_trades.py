@@ -20,16 +20,14 @@ import expiries_of_year
 import supertrend
 import sma
 import place_order
-
+from config import *
 
 LOTSIZE = 75
-ACTIVE_TRADES_CSV = "active_spread_trades.csv"
-ARCHIVE_TRADES_CSV = "archive_spread_trades.csv"
+ACTIVE_TRADES_CSV = "active_buying_trades.csv"
+ARCHIVE_TRADES_CSV = "archive_buying_trades.csv"
 LIVE = False
 
-def write_positions_to_csv(position1, position2, filename, append):
-    # Create a list of dictionaries
-    positions = [position1.data, position2.data]
+def write_positions_to_csv(positions, filename, append):
 
     # Get all field names from the first position
     fieldnames = positions[0].keys()
@@ -47,8 +45,27 @@ def write_positions_to_csv(position1, position2, filename, append):
         for position in positions:
             writer.writerow(position)
 
+def process_option_buy_exit(smart_api,trades):
+    position = opt_position.OptionPosition(trades[0])
+
+    if position.get('order_type') == 'SELL':
+        position.set('order_type', 'BUY')
+    elif :
+        position.set('order_type', 'SELL')
+
+    price1 = get_ltp(smart_api,position.get('symbol_token'),position.get('symbol'),'NFO')
+    position.set('price',price1)
+    position.set('position_type','EXIT')
+    now = datetime.now()
+    position.set('time_stamp',now)
+    write_positions_to_csv(position, {}, ARCHIVE_TRADES_CSV,'a')
+    if os.path.exists(ACTIVE_TRADES_CSV):
+       os.remove(ACTIVE_TRADES_CSV)
+    return [position]
 
 def process_spread_positions_exit(smart_api, trades ):
+    if OPTION_BUYING :
+        return process_option_buy_exit(smart_api, trades)
     position1 = opt_position.OptionPosition(trades[0])
     position2 = opt_position.OptionPosition(trades[1])
 
