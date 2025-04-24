@@ -1,0 +1,87 @@
+#!/usr/bin/python3
+
+import pandas as pd
+from SmartApi import SmartConnect
+from datetime import datetime
+import pprint 
+
+# Set pandas display preferences
+pd.set_option('display.max_rows', None)
+pd.set_option('display.width', None)
+
+
+class StrategyManager:
+    def __init__(self, smart_api):
+        self.smart_api = smart_api
+
+    def take_entry_positions(self, positions):
+        print("\n\nEvent: Taking Entry")
+
+        # Sort positions so that BUY orders come before SELL
+        positions = sorted(positions, key=lambda x: x.data["order_type"] != "BUY")
+
+
+        for position in positions:
+            order = self._place_order(position)
+            if order:
+                self._write_active_order(order)
+
+    def exit_positions(self, positions):
+        print("\n\nEvent: Exiting Positions")
+
+        # Sort positions so that BUY orders come before SELL
+        positions = sorted(positions, key=lambda x: x.data["order_type"] != "BUY")
+
+        for position in positions:
+            order = self._place_order(position)
+            if order:
+                self._remove_active_order(order)
+
+    def _place_order(self, position):
+        order = {
+            "variety": "NORMAL",
+            "tradingsymbol": position.get("symbol"),
+            "symboltoken": position.get("symbol_token"),
+            "transactiontype": position.get("order_type"),
+            "exchange": "NFO",
+            "ordertype": "MARKET",
+            "producttype": "CARRYFORWARD",
+            "duration": "DAY",
+            "quantity": position.get("quantity"),
+            "ordertag": "STRATEGY"
+        }
+
+        try:
+            pprint.pprint(order)
+            response = self.smart_api.placeOrderFullResponse(order)
+            order_id = response["data"]["orderid"]
+            status = self._get_order_status(order_id)
+            if status not in ("COMPLETE",):
+                raise Exception(f"Order status not valid: {status}")
+            return order
+        except Exception as e:
+            print(f"Order placement failed: {e}")
+            return None
+
+    def _get_order_status(self, order_id):
+        order_book = self.smart_api.orderBook()
+        if order_book.get("status"):
+            for order in order_book.get("data", []):
+                if order["orderid"] == order_id:
+                    return order["status"]
+        return "Order not found"
+
+def main(smart_api, positions,position_type='ENTRY'):
+
+    manager = StrategyManager(smart_api)
+    if position_type == 'ENTRY' :
+        manager.take_entry_positions(positions)
+    if position_type == 'EXIT' :
+        manager.exit_positions(positions)
+
+
+
+if __name__ == "__main__":
+    smartApi = None
+    positions = []
+    main(smartApi, positions)
