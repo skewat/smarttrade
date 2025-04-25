@@ -17,14 +17,21 @@ class StrategyManager:
     def take_entry_positions(self, positions):
         print("\n\nEvent: Taking Entry")
 
+        #print(positions)
         # Sort positions so that BUY orders come before SELL
         positions = sorted(positions, key=lambda x: x.data["order_type"] != "BUY")
 
-
         for position in positions:
             order = self._place_order(position)
-            if order:
-                self._write_active_order(order)
+
+    def _open_position(self, position):
+        open_positions = self.smart_api.position()
+        for data in open_positions['data'] :
+            if position.data['symbol'] == data['tradingsymbol'] and data['netqty'] >= position.data['quantity']:
+                print('There is valid position to exit')
+                return True
+        print('There is no valid position to exit')
+        return False
 
     def exit_positions(self, positions):
         print("\n\nEvent: Exiting Positions")
@@ -33,9 +40,8 @@ class StrategyManager:
         positions = sorted(positions, key=lambda x: x.data["order_type"] != "BUY")
 
         for position in positions:
-            order = self._place_order(position)
-            if order:
-                self._remove_active_order(order)
+            if self._open_position(position):
+                order = self._place_order(position)
 
     def _place_order(self, position):
         order = {
@@ -52,7 +58,8 @@ class StrategyManager:
         }
 
         try:
-            pprint.pprint(order)
+            print('Place order...\n',order)
+            return order
             response = self.smart_api.placeOrderFullResponse(order)
             order_id = response["data"]["orderid"]
             status = self._get_order_status(order_id)

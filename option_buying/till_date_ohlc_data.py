@@ -46,10 +46,11 @@ def combine_todays_ohlc(existing_df, minute_csv):
     ]
 
     minute_df.set_index('datetime', inplace=True)
-    hourly_df = minute_df.resample('1H', label='right', closed='right').agg({
+    #hourly_df = minute_df
+    hourly_df = minute_df.resample('1M', label='right', closed='right').agg({
         'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
     }).dropna().reset_index()
-
+    print(hourly_df)
     hourly_df['datetime'] = hourly_df['datetime'] - pd.Timedelta(minutes=45)
     hourly_df = hourly_df[
         (hourly_df['datetime'].dt.time >= time(9, 15)) &
@@ -147,7 +148,7 @@ def fetch_data(smartApi):
         historicParam = {
             "exchange": "NSE",
             "symboltoken": "99926000",
-            "interval": "ONE_HOUR",
+            "interval": "ONE_MINUTE",
             "fromdate": from_date,
             "todate": to_date
         }

@@ -25,12 +25,13 @@ from config import *
 LOTSIZE = 75
 ACTIVE_TRADES_CSV = "active_buying_trades.csv"
 ARCHIVE_TRADES_CSV = "archive_buying_trades.csv"
-LIVE = False
+LIVE = True
 
 def write_positions_to_csv(positions, filename, append):
 
+    p = positions[0]
     # Get all field names from the first position
-    fieldnames = positions[0].keys()
+    fieldnames = p.data.keys()
 
     # Determine write mode and whether to write the header
     mode = 'a' if append else 'w'
@@ -43,14 +44,14 @@ def write_positions_to_csv(positions, filename, append):
             writer.writeheader()
 
         for position in positions:
-            writer.writerow(position)
+            writer.writerow(position.data)
 
 def process_option_buy_exit(smart_api,trades):
     position = opt_position.OptionPosition(trades[0])
 
     if position.get('order_type') == 'SELL':
         position.set('order_type', 'BUY')
-    elif :
+    else:
         position.set('order_type', 'SELL')
 
     price1 = get_ltp(smart_api,position.get('symbol_token'),position.get('symbol'),'NFO')
@@ -58,7 +59,7 @@ def process_option_buy_exit(smart_api,trades):
     position.set('position_type','EXIT')
     now = datetime.now()
     position.set('time_stamp',now)
-    write_positions_to_csv(position, {}, ARCHIVE_TRADES_CSV,'a')
+    write_positions_to_csv([position], ARCHIVE_TRADES_CSV,'a')
     if os.path.exists(ACTIVE_TRADES_CSV):
        os.remove(ACTIVE_TRADES_CSV)
     return [position]
@@ -90,6 +91,48 @@ def process_spread_positions_exit(smart_api, trades ):
        os.remove(ACTIVE_TRADES_CSV)
     return [position1,position2]
 
+
+def process_option_buy_entry(smart_api, trades, lots = 1 ):
+
+    original = opt_position.OptionPosition({'expiry':trades['expiry'],
+                                            'opt_type':trades['type'],
+                                            'quantity':lots*LOTSIZE,
+                                            'position_type':'ENTRY',
+                                          })
+
+    position1 = opt_position.OptionPosition(copy.deepcopy(original.data))
+    
+    # both legs have same Expiry
+    position1.set('expiry', trades['expiry'])
+    
+    # get strike price
+    position1.set('strike', trades['strike_price_atm'])
+
+
+    # get option type 
+    position1.set('opt_type', trades['type'])
+
+    # get trading symbol token 
+    position1.set('symbol_token', trades['atm_token'])
+
+    # get trading symbol
+    position1.set('symbol', trades['atm_symbol'])
+
+    position1.set('order_type', 'BUY')
+
+    # get tranction quantity
+    position1.set('quantity', lots*LOTSIZE)
+
+    atm_price = get_ltp(smart_api,trades['atm_token'],trades['atm_symbol'],'NFO')
+    position1.set('price', atm_price)
+
+    now = datetime.now()
+    formatted_time = now.strftime("%d-%m-%Y:%H:%M:%S")
+    position1.set('time_stamp',formatted_time)
+
+    write_positions_to_csv([position1], ACTIVE_TRADES_CSV,'w')
+    write_positions_to_csv([position1 ], ARCHIVE_TRADES_CSV,'a')
+    return [position1]
 
 def process_spread_positions_entry(smart_api, trades, lots = 1 ):
 
@@ -139,9 +182,9 @@ def process_spread_positions_entry(smart_api, trades, lots = 1 ):
     position1.set('time_stamp',now)
     position2.set('time_stamp',now)
 
-    write_positions_to_csv(position1, position2, ACTIVE_TRADES_CSV,'w')
-    write_positions_to_csv(position1, position2, ARCHIVE_TRADES_CSV,'a')
-    return position1,position2
+    write_positions_to_csv([position1, position2], ACTIVE_TRADES_CSV,'w')
+    write_positions_to_csv([position1, position2], ARCHIVE_TRADES_CSV,'a')
+    return [position1,position2]
 
 def get_ltp(smartApi,token='99926000',symbol='NIFTY',exchange='NSE'):
     ''' Get LTP for Nifty50 Index '''
@@ -153,6 +196,36 @@ def get_ltp(smartApi,token='99926000',symbol='NIFTY',exchange='NSE'):
     data = smartApi.ltpData(exchange, trading_symbol, stock_symbol_token)
     return (data['data']['ltp'])
 
+
+def option_buy_strategy(option_expiries, spot_ltp,option_type):
+    position = None
+    dt = datetime.today()
+     
+    # Entry logic
+    if option_type == 'CE' :
+        # Bull spread
+        o_expiries = [ datetime.strptime(e, "%d%b%y") for e in option_expiries ]
+        expiry = next((e for e in o_expiries if e > dt + timedelta(days=6)), None)
+        expiry = expiry.strftime('%d%b%y').upper()
+        if expiry:
+            position = {
+                'strike_price_atm': int(spot_ltp // 50) * 50 ,
+                'expiry': expiry,
+                'type': option_type
+            }
+
+    elif option_type == "PE" :
+        # Bear spread
+        o_expiries = [ datetime.strptime(e, "%d%b%y") for e in option_expiries ]
+        expiry = next((e for e in o_expiries if e > dt + timedelta(days=6)), None)
+        expiry = expiry.strftime('%d%b%y').upper()
+        if expiry:
+            position = {
+                'strike_price_atm': int(spot_ltp // 50) * 50 ,
+                'expiry': expiry,
+                'type': option_type
+            }
+    return position
 
 def debit_spread_strategy(option_expiries, spot_ltp,option_type):
     """
@@ -225,25 +298,28 @@ def get_trend(spot_indicators_df, type="ENTRY"):
     
     # Get the last row
     last_row = df.iloc[-1]
-    if type == 'ENTRY':
-        # Check the BULLISH condition
-        if last_row['signals'] == 1 and last_row['close'] > last_row['SMA_21']:
-            return 1
-        elif last_row['signals'] == -1 and last_row['close'] < last_row['SMA_21']:
-            return -1
-        else :
-            return 0
-    elif type == 'EXIT' :
-        if last_row['signals'] == 1 :
-            return 1
-        elif last_row['signals'] == -1 :
-            return -1
+    return last_row['signals']
+
+#    if type == 'ENTRY':
+#        # Check the BULLISH condition
+#        #if last_row['signals'] == 1 and last_row['close'] > last_row['SMA_7']:
+#        if last_row['signals'] == 1:
+#            return 1
+#        #elif last_row['signals'] == -1 and last_row['close'] < last_row['SMA_7']:
+#        elif last_row['signals'] == -1 :
+#            return -1
+#        else :
+#            return 0
+#    elif type == 'EXIT' :
+#        if last_row['signals'] == 1 :
+#            return 1
+#        elif last_row['signals'] == -1 :
+#            return -1
 
 
 def new_trade(file_name, spot_ltp):
     ''' Process a new trade if applicable '''
     trend = get_trend(file_name, 'ENTRY') 
-    
     if trend == 1 :
         print("Trend is bullish..")
         trade_type = "CE"
@@ -253,20 +329,31 @@ def new_trade(file_name, spot_ltp):
     else :
         print("Trend is non decisive ..")
         return
+    if not OPTION_BUYING :
+        year = datetime.now().year
+        option_expiries = expiries_of_year.main(year)
+        trades = debit_spread_strategy(option_expiries, spot_ltp,trade_type)
+        atm_t, otm_t, atm_s, otm_s = get_symbol_token('NIFTY',
+                                                      trades['expiry'],
+                                                      trades['strike_price_atm'], 
+                                                      trades['strike_price_otm'],
+                                                      trades['type'])
+        trades['atm_token'] = atm_t
+        trades['otm_token'] = otm_t
+        trades['otm_symbol'] = otm_s
+        trades['atm_symbol'] = atm_s
 
-    year = datetime.now().year
-    option_expiries = expiries_of_year.main(year)
-    trades = debit_spread_strategy(option_expiries, spot_ltp,trade_type)
-    atm_t, otm_t, atm_s, otm_s = get_symbol_token('NIFTY',
-                                                  trades['expiry'],
-                                                  trades['strike_price_atm'], 
-                                                  trades['strike_price_otm'],
-                                                  trades['type'])
-    trades['atm_token'] = atm_t
-    trades['otm_token'] = otm_t
-    trades['otm_symbol'] = otm_s
-    trades['atm_symbol'] = atm_s
-
+    elif OPTION_BUYING :
+        year = datetime.now().year
+        option_expiries = expiries_of_year.main(year)
+        trades = option_buy_strategy(option_expiries, spot_ltp,trade_type)
+        atm_t, otm_t, atm_s, otm_s = get_symbol_token('NIFTY',
+                                                      trades['expiry'],
+                                                      trades['strike_price_atm'], 
+                                                      trades['strike_price_atm'],
+                                                      trades['type'])
+        trades['atm_token'] = atm_t
+        trades['atm_symbol'] = atm_s
     return trades
 
 def connect_angeloone():
@@ -327,10 +414,9 @@ def get_symbol_token(name, expiry, strike_atm, strike_otm,opt_type):
             elif i['symbol'] == otm_symbol:
                 otm_token = i['token']
                 
-    if not atm_token or not otm_token :
-        print("Error !! trading token not found",atm_symbol,otm_token)
-    else:
-        return atm_token, otm_token, atm_symbol, otm_symbol
+    if not ( atm_token or not otm_token ) and not OPTION_BUYING :
+        print("Error !! trading token not found",atm_symbol,otm_symbol)
+    return atm_token, otm_token, atm_symbol, otm_symbol
 
 def signal_handler(sig, frame):
     ''' This is system signal handelr not related to stock/trend signal '''
@@ -338,10 +424,11 @@ def signal_handler(sig, frame):
     disconnect(SmartApi)
     sys.exit(0)
 
-def main(smart_api, file_name = None, spot_ltp = 23800):
+def process(smart_api, file_name = None, spot_ltp = 23800):
     ''' Input is DF with inicators, here we take call if we hit trigger to take trade or exit a trade '''
     spot_ltp = get_ltp(smart_api,'99926000','NIFTY','NSE')
     if is_there_existing_trade():
+        print('There is existing trade')
         df = pd.read_csv(ACTIVE_TRADES_CSV)
         opt_type = df['opt_type'].iloc[0]
         trend = get_trend(file_name, 'EXIT') 
@@ -361,33 +448,61 @@ def main(smart_api, file_name = None, spot_ltp = 23800):
             print("Exited the trade on expiry ..")
 
         if opt_type == 'CE' and trend == 1 :
+            print('Still trend is same ..')
             return
         if opt_type == 'PE' and trend == -1 :
+            print('Still trend is same ..')
             return
         # Trend have changed so exit the trade
         process_existing_trade(smart_api)
         print("Exited the trade ..  change in trend")
 
     if not is_there_existing_trade():
+        print('There is no existing trade')
         # Take a new trade
         trades = new_trade(file_name, spot_ltp)
         if not trades :
             print('No new trades taken .. ')
             return
-        position1,position2 = process_spread_positions_entry(smart_api, trades, lots = 1)
+        if OPTION_BUYING : 
+            positions = process_option_buy_entry(smart_api, trades, lots = 1)
+        else :
+            positions = process_spread_positions_entry(smart_api, trades, lots = 1)
         if LIVE and trades:
-            place_order.main(smart_api,[position1,position2],'ENTRY')
-        print('Taking entry position',position1.data,position2.data)
+            place_order.main(smart_api,positions,'ENTRY')
 
-if __name__ == '__main__':
-    smartApi = connect_angeloone()
-    if not smartApi :
-        sys.exit("Failied while connecting to server")
+        print('Taking entry position')
+        for p in positions :
+            print(p.data)
 
+def is_within_time_range():
+    now = datetime.now()
+    start_time = now.replace(hour=9, minute=16, second=0, microsecond=0)
+    end_time = now.replace(hour=15, minute=25, second=0, microsecond=0)
+    return start_time <= now <= end_time
+            
+
+def main(smartApi):
     ohlc_df = till_date_ohlc_data.main(smartApi)
     if ohlc_df.empty:
         sys.exit('OHLC data not found...')
     super_file = supertrend.main(ohlc_df)
     sma_file = sma.main(super_file)
-    main(smartApi, sma_file)
+    process(smartApi, sma_file)
+
+if __name__ == '__main__':
+    smartApi = connect_angeloone()
+    if not smartApi :
+        sys.exit("Failied while connecting to server")
+    while True:
+        if is_within_time_range():
+            main(smartApi)
+        else:
+            print("Outside trading hours:", datetime.now().strftime("%d-%m-%Y:%H:%M:%S"))
+        # Align to the start of the next minute
+        now = datetime.now()
+        next_minute = (now + timedelta(minutes=1)).replace(second=0, microsecond=0)
+        import time
+        time.sleep((next_minute - datetime.now()).total_seconds())
+
     logout(smartApi)
