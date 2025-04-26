@@ -2,6 +2,8 @@ import os
 import requests
 import json
 from datetime import datetime
+import config 
+
 data = []
 def download_symbol_token_file():
     today = datetime.now().strftime("%Y%m%d")
@@ -32,6 +34,29 @@ def load_json_data(filename):
     except Exception as e:
         print(f"Error loading JSON: {e}")
         return None
+
+def get_symbol_token(name, expiry, strike_atm, strike_otm,opt_type):
+    '''Symbol token is needed for placing order and historical data , this token is not generic and
+       it's provided by angelone @
+       curl -k https://margincalculator.angelone.in/OpenAPI_File/files/OpenAPIScripMaster.json
+       We store it in symbol_token.py and import it as this gives next few years data.
+    '''
+    atm_token = None
+    otm_token = None
+    data = main()
+    for i in data:
+        if i['exch_seg'] == 'NFO' and  i['name'] == name :
+            atm_symbol = f"{name}{expiry}{strike_atm}{opt_type}"
+            otm_symbol = f"{name}{expiry}{strike_otm}{opt_type}"
+            if i['symbol'] == atm_symbol:
+                atm_token = i['token']
+
+            elif i['symbol'] == otm_symbol:
+                otm_token = i['token']
+                
+    if not ( atm_token or not otm_token ) and not config.OPTION_BUYING :
+        print("Error !! trading token not found",atm_symbol,otm_symbol)
+    return atm_token, otm_token, atm_symbol, otm_symbol
 
 def main():
     global data
