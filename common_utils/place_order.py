@@ -30,7 +30,6 @@ class StrategyManager:
             if position.data['symbol'] == data['tradingsymbol'] and data['netqty'] >= position.data['quantity']:
                 print('There is valid position to exit')
                 return True
-        print('There is no valid position to exit')
         return False
 
     def exit_positions(self, positions):
@@ -42,6 +41,8 @@ class StrategyManager:
         for position in positions:
             if self._open_position(position):
                 order = self._place_order(position)
+            else:
+                print('There is no valid position to exit')
 
     def _place_order(self, position):
         order = {
@@ -59,7 +60,6 @@ class StrategyManager:
 
         try:
             print('Place order...\n',order)
-            return order
             response = self.smart_api.placeOrderFullResponse(order)
             order_id = response["data"]["orderid"]
             status = self._get_order_status(order_id)

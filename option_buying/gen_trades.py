@@ -5,7 +5,6 @@ from datetime import datetime,time, timedelta
 from logzero import logger 
 import sys
 import os
-from login_details import *
 from logzero import logger 
 import pyotp
 import sys
@@ -13,19 +12,21 @@ import signal
 import os
 import copy 
 import csv
-import symboltoken
-import opt_position 
-import till_date_ohlc_data
-import expiries_of_year
-import supertrend
-import sma
-import place_order
-from config import *
 
-LOTSIZE = 75
-ACTIVE_TRADES_CSV = "active_buying_trades.csv"
-ARCHIVE_TRADES_CSV = "archive_buying_trades.csv"
-LIVE = True
+# Add the <path> directory to sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+base_path = os.path.abspath(os.path.join(current_dir, ".."))
+sys.path.append(base_path)
+
+# Import local modules 
+from common_utils import till_date_ohlc_data
+from common_utils import expiries_of_year
+from common_utils import place_order
+from common_utils import symboltoken
+from common_utils import opt_position 
+from common_utils import supertrend
+from common_utils import sma
+import config
 
 def write_positions_to_csv(positions, filename, append):
 
@@ -59,13 +60,13 @@ def process_option_buy_exit(smart_api,trades):
     position.set('position_type','EXIT')
     now = datetime.now()
     position.set('time_stamp',now)
-    write_positions_to_csv([position], ARCHIVE_TRADES_CSV,'a')
-    if os.path.exists(ACTIVE_TRADES_CSV):
-       os.remove(ACTIVE_TRADES_CSV)
+    write_positions_to_csv([position], config.ARCHIVE_TRADES_CSV,'a')
+    if os.path.exists(config.ACTIVE_TRADES_CSV):
+       os.remove(config.ACTIVE_TRADES_CSV)
     return [position]
 
 def process_spread_positions_exit(smart_api, trades ):
-    if OPTION_BUYING :
+    if config.OPTION_BUYING :
         return process_option_buy_exit(smart_api, trades)
     position1 = opt_position.OptionPosition(trades[0])
     position2 = opt_position.OptionPosition(trades[1])
@@ -86,9 +87,9 @@ def process_spread_positions_exit(smart_api, trades ):
     now = datetime.now()
     position1.set('time_stamp',now)
     position2.set('time_stamp',now)
-    write_positions_to_csv(position1, position2, ARCHIVE_TRADES_CSV,'a')
-    if os.path.exists(ACTIVE_TRADES_CSV):
-       os.remove(ACTIVE_TRADES_CSV)
+    write_positions_to_csv(position1, position2, config.ARCHIVE_TRADES_CSV,'a')
+    if os.path.exists(config.ACTIVE_TRADES_CSV):
+       os.remove(config.ACTIVE_TRADES_CSV)
     return [position1,position2]
 
 
@@ -96,7 +97,7 @@ def process_option_buy_entry(smart_api, trades, lots = 1 ):
 
     original = opt_position.OptionPosition({'expiry':trades['expiry'],
                                             'opt_type':trades['type'],
-                                            'quantity':lots*LOTSIZE,
+                                            'quantity':lots*config.LOTSIZE,
                                             'position_type':'ENTRY',
                                           })
 
@@ -121,7 +122,7 @@ def process_option_buy_entry(smart_api, trades, lots = 1 ):
     position1.set('order_type', 'BUY')
 
     # get tranction quantity
-    position1.set('quantity', lots*LOTSIZE)
+    position1.set('quantity', lots*config.LOTSIZE)
 
     atm_price = get_ltp(smart_api,trades['atm_token'],trades['atm_symbol'],'NFO')
     position1.set('price', atm_price)
@@ -130,15 +131,15 @@ def process_option_buy_entry(smart_api, trades, lots = 1 ):
     formatted_time = now.strftime("%d-%m-%Y:%H:%M:%S")
     position1.set('time_stamp',formatted_time)
 
-    write_positions_to_csv([position1], ACTIVE_TRADES_CSV,'w')
-    write_positions_to_csv([position1 ], ARCHIVE_TRADES_CSV,'a')
+    write_positions_to_csv([position1], config.ACTIVE_TRADES_CSV,'w')
+    write_positions_to_csv([position1 ], config.ARCHIVE_TRADES_CSV,'a')
     return [position1]
 
 def process_spread_positions_entry(smart_api, trades, lots = 1 ):
 
     original = opt_position.OptionPosition({'expiry':trades['expiry'],
                                             'opt_type':trades['type'],
-                                            'quantity':lots*LOTSIZE,
+                                            'quantity':lots*config.LOTSIZE,
                                             'position_type':'ENTRY',
                                           })
 
@@ -170,8 +171,8 @@ def process_spread_positions_entry(smart_api, trades, lots = 1 ):
     position2.set('order_type', 'BUY')
 
     # get tranction quantity
-    position1.set('quantity', lots*LOTSIZE)
-    position2.set('quantity', lots*LOTSIZE)
+    position1.set('quantity', lots*config.LOTSIZE)
+    position2.set('quantity', lots*config.LOTSIZE)
 
     atm_price = get_ltp(smart_api,trades['atm_token'],trades['atm_symbol'],'NFO')
     otm_price = get_ltp(smart_api,trades['otm_token'],trades['otm_symbol'],'NFO')
@@ -182,8 +183,8 @@ def process_spread_positions_entry(smart_api, trades, lots = 1 ):
     position1.set('time_stamp',now)
     position2.set('time_stamp',now)
 
-    write_positions_to_csv([position1, position2], ACTIVE_TRADES_CSV,'w')
-    write_positions_to_csv([position1, position2], ARCHIVE_TRADES_CSV,'a')
+    write_positions_to_csv([position1, position2], config.ACTIVE_TRADES_CSV,'w')
+    write_positions_to_csv([position1, position2], config.ARCHIVE_TRADES_CSV,'a')
     return [position1,position2]
 
 def get_ltp(smartApi,token='99926000',symbol='NIFTY',exchange='NSE'):
@@ -265,7 +266,7 @@ def debit_spread_strategy(option_expiries, spot_ltp,option_type):
     return position
 
 def get_active_positions():
-    filename = ACTIVE_TRADES_CSV
+    filename = config.ACTIVE_TRADES_CSV
     with open(filename, mode='r', newline='') as file:
         reader = csv.DictReader(file)
         positions = [row for row in reader]
@@ -273,8 +274,8 @@ def get_active_positions():
 
 # Check If there is already a trade
 def is_there_existing_trade():
-    if os.path.exists(ACTIVE_TRADES_CSV):
-        df = pd.read_csv(ACTIVE_TRADES_CSV)
+    if os.path.exists(config.ACTIVE_TRADES_CSV):
+        df = pd.read_csv(config.ACTIVE_TRADES_CSV)
         try :
             first_opt_type = df['opt_type'].iloc[0]
             return True
@@ -288,7 +289,7 @@ def is_there_existing_trade():
 def process_existing_trade(smart_api):
     positions = get_active_positions()
     exit_positions = process_spread_positions_exit(smart_api, positions)
-    if LIVE :
+    if config.LIVE :
         place_order.main(smart_api,exit_positions,'EXIT')
    
 def get_trend(spot_indicators_df, type="ENTRY"):
@@ -329,7 +330,7 @@ def new_trade(file_name, spot_ltp):
     else :
         print("Trend is non decisive ..")
         return
-    if not OPTION_BUYING :
+    if not config.OPTION_BUYING :
         year = datetime.now().year
         option_expiries = expiries_of_year.main(year)
         trades = debit_spread_strategy(option_expiries, spot_ltp,trade_type)
@@ -343,7 +344,7 @@ def new_trade(file_name, spot_ltp):
         trades['otm_symbol'] = otm_s
         trades['atm_symbol'] = atm_s
 
-    elif OPTION_BUYING :
+    elif config.OPTION_BUYING :
         year = datetime.now().year
         option_expiries = expiries_of_year.main(year)
         trades = option_buy_strategy(option_expiries, spot_ltp,trade_type)
@@ -358,16 +359,16 @@ def new_trade(file_name, spot_ltp):
 
 def connect_angeloone():
     ''' Connect to AngelOne using API '''
-    smartApi = SmartConnect(api_key)
+    smartApi = SmartConnect(config.API_KEY)
     try:
-        token = "YDGLN23VQ7KBI4QEY6PR2OA7TE"
+        token = config.TOKEN # "YDGLN23VQ7KBI4QEY6PR2OA7TE"
         totp = pyotp.TOTP(token).now()
     except Exception as e:
         logger.error("Invalid Token: The provided token is not valid.")
         raise e
     
     correlation_id = "abcde"
-    data = smartApi.generateSession(username, pwd, totp)
+    data = smartApi.generateSession(config.USERNAME, config.PWD, totp)
     
     if data['status'] == False:
         logger.error(data)
@@ -414,7 +415,7 @@ def get_symbol_token(name, expiry, strike_atm, strike_otm,opt_type):
             elif i['symbol'] == otm_symbol:
                 otm_token = i['token']
                 
-    if not ( atm_token or not otm_token ) and not OPTION_BUYING :
+    if not ( atm_token or not otm_token ) and not config.OPTION_BUYING :
         print("Error !! trading token not found",atm_symbol,otm_symbol)
     return atm_token, otm_token, atm_symbol, otm_symbol
 
@@ -429,7 +430,7 @@ def process(smart_api, file_name = None, spot_ltp = 23800):
     spot_ltp = get_ltp(smart_api,'99926000','NIFTY','NSE')
     if is_there_existing_trade():
         print('There is existing trade')
-        df = pd.read_csv(ACTIVE_TRADES_CSV)
+        df = pd.read_csv(config.ACTIVE_TRADES_CSV)
         opt_type = df['opt_type'].iloc[0]
         trend = get_trend(file_name, 'EXIT') 
 
@@ -464,11 +465,11 @@ def process(smart_api, file_name = None, spot_ltp = 23800):
         if not trades :
             print('No new trades taken .. ')
             return
-        if OPTION_BUYING : 
+        if config.OPTION_BUYING : 
             positions = process_option_buy_entry(smart_api, trades, lots = 1)
         else :
             positions = process_spread_positions_entry(smart_api, trades, lots = 1)
-        if LIVE and trades:
+        if config.LIVE and trades:
             place_order.main(smart_api,positions,'ENTRY')
 
         print('Taking entry position')
@@ -495,7 +496,7 @@ if __name__ == '__main__':
     if not smartApi :
         sys.exit("Failied while connecting to server")
     while True:
-        if is_within_time_range():
+        if is_within_time_range() or config.TESTING :
             main(smartApi)
         else:
             print("Outside trading hours:", datetime.now().strftime("%d-%m-%Y:%H:%M:%S"))
