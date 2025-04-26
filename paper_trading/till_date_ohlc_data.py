@@ -32,10 +32,10 @@ def combine_todays_ohlc(existing_df, minute_csv):
     Returns:
         pd.DataFrame: Combined DataFrame with updated OHLC data.
     """
-    #today = datetime.today().strftime('%Y-%m-%d')
-    #if not minute_csv.empty:
-    #    return existing_df
-    #    minute_csv = f"t_nifty50_ohlc_{today}.csv"
+    today = datetime.today().strftime('%Y-%m-%d')
+    minute_csv = f"t_nifty50_ohlc_{today}.csv"
+    if not os.path.exists(minute_csv):
+        return existing_df
     minute_df = pd.read_csv(minute_csv, parse_dates=['minute'])
     minute_df.rename(columns={'minute': 'datetime'}, inplace=True)
 

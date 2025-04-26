@@ -252,7 +252,7 @@ def new_trade(file_name, spot_ltp):
 
     return trades
 
-def connect_angeloone():
+def connect_angelone():
     ''' Connect to AngelOne using API '''
     smartApi = SmartConnect(api_key)
     try:
@@ -362,14 +362,29 @@ def main(smart_api, file_name = None, spot_ltp = 23800):
             place_order.main(smart_api,[position1,position2],'ENTRY')
         print('Taking entry position',position1.data,position2.data)
 
-if __name__ == '__main__':
-    smartApi = connect_angeloone()
-    if not smartApi :
-        sys.exit("Failied while connecting to server")
+def ohlc_with_retry(delay_seconds=5):
+    ohlc_df = pd.DataFrame()  # Initialize as an empty DataFrame
+    while True:
+        ohlc_df = till_date_ohlc_data.main(smartApi)
+        if ohlc_df.empty:
+            time.sleep(delay_seconds)
+        else:
+            return ohlc_df
 
+def connect_with_retry(delay_seconds=5):
+    while True:
+        smartApi = connect_angelone()
+        if smartApi:
+            print("Connected successfully to AngelOne!")
+            return smartApi
+        else:
+            print(f"Failed to connect. Retrying in {delay_seconds} seconds...")
+            time.sleep(delay_seconds)
+
+if __name__ == '__main__':
+    smartApi = connect_with_retry()
     ohlc_df = till_date_ohlc_data.main(smartApi)
-    if ohlc_df.empty:
-        sys.exit('OHLC data not found...')
+
     super_file = supertrend.main(ohlc_df)
     sma_file = sma.main(super_file)
     main(smartApi, sma_file)
