@@ -27,6 +27,7 @@ from common_utils import opt_position
 from common_utils import supertrend
 from common_utils import sma
 import config
+from common_utils import angelone
 
 def write_positions_to_csv(positions, filename, append):
 
@@ -357,44 +358,44 @@ def new_trade(file_name, spot_ltp):
         trades['atm_symbol'] = atm_s
     return trades
 
-def connect_angeloone():
-    ''' Connect to AngelOne using API '''
-    smartApi = SmartConnect(config.API_KEY)
-    try:
-        token = config.TOKEN # "YDGLN23VQ7KBI4QEY6PR2OA7TE"
-        totp = pyotp.TOTP(token).now()
-    except Exception as e:
-        logger.error("Invalid Token: The provided token is not valid.")
-        raise e
-    
-    correlation_id = "abcde"
-    data = smartApi.generateSession(config.USERNAME, config.PWD, totp)
-    
-    if data['status'] == False:
-        logger.error(data)
-    
-    else:
-        # login api call
-        # logger.info(f"You Credentials: {data}")
-        authToken = data['data']['jwtToken']
-        refreshToken = data['data']['refreshToken']
-        # fetch the feedtoken
-        feedToken = smartApi.getfeedToken()
-        # fetch User Profile
-        res = smartApi.getProfile(refreshToken)
-        smartApi.generateToken(refreshToken)
-        res = res['data']['exchanges']
-        print("\n\n\n")
-        return smartApi
-
-def logout(smartAPi):
-    # logout from AngenOne API
-    try:
-        logout = smartApi.terminateSession('AAAE362329')
-        print("\n\n\n")
-        logger.info("Logout Successfull")
-    except Exception as e:
-        logger.exception(f"Logout failed: {e}")
+#def connect_angeloone():
+#    ''' Connect to AngelOne using API '''
+#    smartApi = SmartConnect(config.API_KEY)
+#    try:
+#        token = config.TOKEN # "YDGLN23VQ7KBI4QEY6PR2OA7TE"
+#        totp = pyotp.TOTP(token).now()
+#    except Exception as e:
+#        logger.error("Invalid Token: The provided token is not valid.")
+#        raise e
+#    
+#    correlation_id = "abcde"
+#    data = smartApi.generateSession(config.USERNAME, config.PWD, totp)
+#    
+#    if data['status'] == False:
+#        logger.error(data)
+#    
+#    else:
+#        # login api call
+#        # logger.info(f"You Credentials: {data}")
+#        authToken = data['data']['jwtToken']
+#        refreshToken = data['data']['refreshToken']
+#        # fetch the feedtoken
+#        feedToken = smartApi.getfeedToken()
+#        # fetch User Profile
+#        res = smartApi.getProfile(refreshToken)
+#        smartApi.generateToken(refreshToken)
+#        res = res['data']['exchanges']
+#        print("\n\n\n")
+#        return smartApi
+#
+#def logout(smartAPi):
+#    # logout from AngenOne API
+#    try:
+#        logout = smartApi.terminateSession('AAAE362329')
+#        print("\n\n\n")
+#        logger.info("Logout Successfull")
+#    except Exception as e:
+#        logger.exception(f"Logout failed: {e}")
 
 def get_symbol_token(name, expiry, strike_atm, strike_otm,opt_type):
     '''Symbol token is needed for placing order and historical data , this token is not generic and
@@ -418,12 +419,6 @@ def get_symbol_token(name, expiry, strike_atm, strike_otm,opt_type):
     if not ( atm_token or not otm_token ) and not config.OPTION_BUYING :
         print("Error !! trading token not found",atm_symbol,otm_symbol)
     return atm_token, otm_token, atm_symbol, otm_symbol
-
-def signal_handler(sig, frame):
-    ''' This is system signal handelr not related to stock/trend signal '''
-    print("\nExiting gracefully...")
-    disconnect(SmartApi)
-    sys.exit(0)
 
 def process(smart_api, file_name = None, spot_ltp = 23800):
     ''' Input is DF with inicators, here we take call if we hit trigger to take trade or exit a trade '''
@@ -476,7 +471,14 @@ def process(smart_api, file_name = None, spot_ltp = 23800):
         for p in positions :
             print(p.data)
 
+def signal_handler(sig, frame):
+    ''' This is system signal handelr not related to stock/trend signal '''
+    print("\nExiting gracefully...")
+    sys.exit(0)
+
+
 def is_within_time_range():
+    ''' Run it only withing office hours of NSE '''
     now = datetime.now()
     start_time = now.replace(hour=9, minute=16, second=0, microsecond=0)
     end_time = now.replace(hour=15, minute=25, second=0, microsecond=0)
@@ -492,7 +494,8 @@ def main(smartApi):
     process(smartApi, sma_file)
 
 if __name__ == '__main__':
-    smartApi = connect_angeloone()
+    signal.signal(signal.SIGINT, signal_handler)
+    smartApi = angelone.connect()
     if not smartApi :
         sys.exit("Failied while connecting to server")
     while True:
@@ -506,4 +509,4 @@ if __name__ == '__main__':
         import time
         time.sleep((next_minute - datetime.now()).total_seconds())
 
-    logout(smartApi)
+    angelone.logout(smartApi)
