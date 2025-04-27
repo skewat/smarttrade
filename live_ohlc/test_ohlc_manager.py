@@ -2,8 +2,14 @@
 
 import os
 import shutil
-from common_utils.ohlc_recorder import OHLCManager
 from datetime import datetime
+import sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+base_path = os.path.abspath(os.path.join(current_dir, ".."))
+sys.path.append(base_path)
+
+from common_utils.ohlc_recorder import OHLCManager
 
 def test_ohlc_creation_and_write():
     """Test OHLC data creation and CSV writing."""
