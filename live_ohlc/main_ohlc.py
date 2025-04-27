@@ -11,10 +11,11 @@ from common_utils.ohlc_recorder import SmartAPIClient, OHLCManager, setup_signal
 
 def initialize_clients_with_retry(retry_interval=5):
     """Keep retrying to initialize SmartAPIClient and OHLCManager until success."""
+    path = os.path.abspath(os.path.join(os.path.expanduser("~"),'options_strategy/smarttrade//data/ohlc_data'))
     while True:
         try:
             client = SmartAPIClient()
-            ohlc_manager = OHLCManager()
+            ohlc_manager = OHLCManager(path)
             print("SmartAPIClient and OHLCManager initialized successfully!")
             return client, ohlc_manager
         except Exception as e:
