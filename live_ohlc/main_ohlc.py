@@ -9,10 +9,22 @@ sys.path.append(base_path)
 
 from common_utils.ohlc_recorder import SmartAPIClient, OHLCManager, setup_signal_handlers
 
-def main():
-    client = SmartAPIClient()
-    ohlc_manager = OHLCManager()
+def initialize_clients_with_retry(retry_interval=5):
+    """Keep retrying to initialize SmartAPIClient and OHLCManager until success."""
+    while True:
+        try:
+            client = SmartAPIClient()
+            ohlc_manager = OHLCManager()
+            print("SmartAPIClient and OHLCManager initialized successfully!")
+            return client, ohlc_manager
+        except Exception as e:
+            print(f"Initialization failed: {e}")
+            print(f"Retrying in {retry_interval} seconds...")
+            time.sleep(retry_interval)
 
+def main():
+
+    client, ohlc_manager = initialize_clients_with_retry()
     correlation_id = "dft_test1"
     mode = 1  # LTP
     token_list = [{"exchangeType": 1, "tokens": ["99926000"]}]
