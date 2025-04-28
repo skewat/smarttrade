@@ -13,13 +13,13 @@ import signal
 import os
 import copy 
 import csv
-import symboltoken
 import opt_position 
 import till_date_ohlc_data
 import expiries_of_year
 import supertrend
 import sma
 import place_order
+from common_utils import symboltoken
 
 
 LOTSIZE = 75
@@ -240,11 +240,13 @@ def new_trade(file_name, spot_ltp):
     year = datetime.now().year
     option_expiries = expiries_of_year.main(year)
     trades = debit_spread_strategy(option_expiries, spot_ltp,trade_type)
-    atm_t, otm_t, atm_s, otm_s = get_symbol_token('NIFTY',
-                                                  trades['expiry'],
-                                                  trades['strike_price_atm'], 
-                                                  trades['strike_price_otm'],
-                                                  trades['type'])
+    atm_t, otm_t, atm_s, otm_s = symboltoken.get_symbol_token(
+            'NIFTY', trades['expiry'],
+            trades['strike_price_atm'],
+            trades['strike_price_otm'],
+            trade['strike_price_atm'],
+            trades['type']
+        )
     trades['atm_token'] = atm_t
     trades['otm_token'] = otm_t
     trades['otm_symbol'] = otm_s
@@ -290,30 +292,6 @@ def logout(smartAPi):
         logger.info("Logout Successfull")
     except Exception as e:
         logger.exception(f"Logout failed: {e}")
-
-def get_symbol_token(name, expiry, strike_atm, strike_otm,opt_type):
-    '''Symbol token is needed for placing order and historical data , this token is not generic and
-       it's provided by angelone @
-       curl -k https://margincalculator.angelone.in/OpenAPI_File/files/OpenAPIScripMaster.json
-       We store it in symbol_token.py and import it as this gives next few years data.
-    '''
-    atm_token = None
-    otm_token = None
-    data = symboltoken.main()
-    for i in data:
-        if i['exch_seg'] == 'NFO' and  i['name'] == name :
-            atm_symbol = f"{name}{expiry}{strike_atm}{opt_type}"
-            otm_symbol = f"{name}{expiry}{strike_otm}{opt_type}"
-            if i['symbol'] == atm_symbol:
-                atm_token = i['token']
-
-            elif i['symbol'] == otm_symbol:
-                otm_token = i['token']
-                
-    if not atm_token or not otm_token :
-        print("Error !! trading token not found",atm_symbol,otm_token)
-    else:
-        return atm_token, otm_token, atm_symbol, otm_symbol
 
 def signal_handler(sig, frame):
     ''' This is system signal handelr not related to stock/trend signal '''

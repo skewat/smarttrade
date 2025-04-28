@@ -158,9 +158,23 @@ def find_valid_expiry(expiries):
     return expiry.strftime('%d%b%y').upper() if expiry else None
 
 def get_trend(file_path):
-    """Read latest trend signal from indicator file."""
+    """Read latest trend signal from indicator file.
+    Return latest signal if there is a change from previous signal (1 to -1 or -1 to 1),
+    else return 0.
+    """
     df = pd.read_csv(file_path)
-    return df.iloc[-1]['signals']
+
+    if len(df) < 2:
+        # Not enough data to detect a change
+        return 0
+
+    prev_signal = df.iloc[-2]['signals']
+    latest_signal = df.iloc[-1]['signals']
+
+    if prev_signal != latest_signal and latest_signal in [1, -1] and prev_signal in [1, -1]:
+        return latest_signal
+    else:
+        return 0
 
 # ========================================
 # TRADE MANAGEMENT
@@ -218,11 +232,14 @@ def process(smart_api, file_path):
         today = datetime.today().date()
         current_time = datetime.now().time()
 
-        if expiry == today and current_time >= time(14, 30):
+        if expiry == today and current_time >= time(14, 50):
             exit_positions = process_spread_positions_exit(smart_api, active_positions)
             if config.LIVE:
                 place_order.main(smart_api, exit_positions, 'EXIT')
             logger.info('Exited on expiry.')
+            return
+        if trend_now == 0 :
+            logger.info('Trend unchanged.')
             return
 
         if (opt_type == 'CE' and trend_now == 1) or (opt_type == 'PE' and trend_now == -1):
