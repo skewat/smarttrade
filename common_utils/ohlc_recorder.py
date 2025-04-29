@@ -47,7 +47,7 @@ class OHLCManager:
     def write_ohlc_to_csv(self, token_data):
         """Writes OHLC data to a CSV file."""
         date = token_data['minute'].date()
-        file_path = os.path.join(self.folder, f"nifty50_ohlc_{date}.csv")
+        file_path = os.path.join(self.folder, f"t_nifty50_ohlc_{date}.csv")
         headers = ['minute', 'open', 'high', 'low', 'close']
 
         row = {
