@@ -164,6 +164,23 @@ def logout(smartApi):
     except Exception as e:
         logger.exception(f"Logout failed: {e}")
 
+def get_daily_data(smartApi, filename_prefix="daily_data"):
+    """Fetch data once per day and cache it in a CSV file."""
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    filename = f"{filename_prefix}_{today_str}.csv"
+
+    if os.path.exists(filename):
+        # If file exists, load from CSV
+        print(f"Loading data from existing file: {filename}")
+        df = pd.read_csv(filename)
+    else:
+        # If file does not exist, fetch and save
+        print(f"Fetching new data and saving to file: {filename}")
+        df = fetch_data(smartApi)  # Your function
+        df.to_csv(filename, index=False)
+
+    return df
+
 def fetch_ohlc(smartApi):
     """
     Fetch and prepare historical OHLC data as DataFrame.
@@ -174,7 +191,7 @@ def fetch_ohlc(smartApi):
     Returns:
         pd.DataFrame: DataFrame with OHLC data.
     """
-    data = fetch_data(smartApi)
+    data = get_daily_data(smartApi)
     df = pd.DataFrame(data["data"], columns=["Datetime", "Open", "High", "Low", "Close", "Volume"])
     df["Datetime"] = pd.to_datetime(df["Datetime"])
     df.set_index("Datetime", inplace=True)
