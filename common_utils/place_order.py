@@ -5,6 +5,7 @@ from logzero import logger
 from SmartApi import SmartConnect
 from datetime import datetime
 import pprint 
+import time
 
 # Set pandas display preferences
 pd.set_option('display.max_rows', None)
@@ -61,11 +62,11 @@ class StrategyManager:
 
         try:
             logger.info('Placing order...')
+            print(self.smart_api,order)
             response = self.smart_api.placeOrderFullResponse(order)
             order_id = response["data"]["orderid"]
-            status = self._get_order_status(order_id)
-            if status not in ("COMPLETE",):
-                raise Exception(f"Order status not valid: {status}")
+            if response['message'] != 'SUCCESS' :
+                raise Exception(f"Order status not valid: {response['message']}")
             return order
         except Exception as e:
             logger.error(f"Order placement failed: {e}")

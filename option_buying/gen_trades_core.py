@@ -272,7 +272,7 @@ def new_trade(smart_api, file_path, spot_ltp,timestamp=None):
     """Create a new trade idea based on indicator trend."""
     trend = get_trend(file_path,timestamp)
     if trend not in [1, -1]:
-        logger.info('No decisive trend.')
+        logger.info(f"No decisive trend. {trend}")
         return None
 
     option_type = "CE" if trend == 1 else "PE"
