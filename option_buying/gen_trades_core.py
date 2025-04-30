@@ -30,9 +30,11 @@ from common_utils import (
 # UTILITY FUNCTIONS
 # ========================================
 
+simulate_timestamp = None
+
 def signal_handler(sig, frame):
     """Handle SIGINT (Ctrl+C) to exit gracefully."""
-    print("\nExiting gracefully...")
+    logger.info("\nExiting gracefully...")
     sys.exit(0)
 
 def write_positions_to_csv(positions, filename, append):
@@ -51,10 +53,14 @@ def write_positions_to_csv(positions, filename, append):
         for position in positions:
             writer.writerow(position.data)
 
-def get_ltp(smart_api, token='99926000', symbol='NIFTY', exchange='NSE'):
+def get_ltp(smart_api, token='99926000', symbol='NIFTY', exchange='NSE', timestamp = None):
     """Fetch latest traded price (LTP) from API."""
-    data = smart_api.ltpData(exchange, symbol, token)
-    return data['data']['ltp']
+    global simulate_timestamp
+    if config.SIMULATE :
+        return get_ltp_from_file(config.CSV_FILE, simulate_timestamp)
+    else:
+        data = smart_api.ltpData(exchange, symbol, token)
+        return data['data']['ltp']
 
 # ========================================
 # ENTRY & EXIT PROCESSORS
@@ -157,7 +163,7 @@ def find_valid_expiry(expiries):
     expiry = next((datetime.strptime(e, "%d%b%y") for e in expiries if datetime.strptime(e, "%d%b%y") > dt + timedelta(days=6)), None)
     return expiry.strftime('%d%b%y').upper() if expiry else None
 
-def get_trend(file_path):
+def _get_trend(file_path):
     """Read latest trend signal from indicator file.
     Return latest signal if there is a change from previous signal (1 to -1 or -1 to 1),
     else return 0.
@@ -176,6 +182,79 @@ def get_trend(file_path):
     else:
         return 0
 
+
+def get_trend(file_path, timestamp = None) -> int:
+    """
+    Check for a signal change in the indicator file.
+
+    If timestamp is provided, compares signal at that time and the previous one.
+    If not, compares the last two signals in the file.
+
+    Args:
+        file_path (str): Path to the CSV file with 'timestamp' and 'signals' columns.
+        timestamp (str, optional): Timestamp to check (must match the format in CSV exactly).
+
+    Returns:
+        int: Latest signal (1 or -1) if there's a trend change, else 0.
+    """
+    try:
+        df = pd.read_csv(file_path)
+    except Exception as e:
+        logger.error(f"Error reading file: {e}")
+        return 0
+
+    if 'signals' not in df.columns:
+        logger.warning(f"signal not in column")
+        return 0
+
+    if timestamp is not None:
+        if 'datetime' not in df.columns:
+            logger.warning(f"datetime not in column, check if it is Datetime ?")
+            return 0
+
+        df['datetime'] = pd.to_datetime(df['datetime'])
+        try:
+            target_time = pd.to_datetime(timestamp)
+        except Exception as e:
+            logger.warning(f"Invalid timestamp: {e}")
+            return 0
+
+        row_index = df.index[df['datetime'] == target_time].tolist()
+        if not row_index:
+            logger.warning(f"Row index empty")
+            return 0
+        idx = row_index[0]
+
+        if idx == 0:
+            logger.warning(f"No previous row to compare")
+            return 0  # No previous row to compare
+
+        prev_signal = df.iloc[idx - 1]['signals']
+        latest_signal = df.iloc[idx]['signals']
+    else:
+        if len(df) < 2:
+            logger.warning(f"Data Frame too small")
+            return 0
+        prev_signal = df.iloc[-2]['signals']
+        latest_signal = df.iloc[-1]['signals']
+
+    # Validate and compare
+    if pd.isna(prev_signal) or pd.isna(latest_signal):
+        logger.warning(f"Both signals are needed to compare")
+        return 0
+
+    try:
+        prev_signal = int(prev_signal)
+        latest_signal = int(latest_signal)
+    except ValueError:
+        logger.warning(f"Value error: {e}")
+        return 0
+
+    if prev_signal != latest_signal and latest_signal in [1, -1] and prev_signal in [1, -1]:
+        logger.info(f"{timestamp}  Trend {latest_signal} prev {prev_signal} latest {latest_signal}")
+        return latest_signal
+    else:
+        return 0
 # ========================================
 # TRADE MANAGEMENT
 # ========================================
@@ -189,9 +268,9 @@ def get_active_positions():
     with open(config.ACTIVE_TRADES_CSV, mode='r', newline='') as file:
         return list(csv.DictReader(file))
 
-def new_trade(smart_api, file_path, spot_ltp):
+def new_trade(smart_api, file_path, spot_ltp,timestamp=None):
     """Create a new trade idea based on indicator trend."""
-    trend = get_trend(file_path)
+    trend = get_trend(file_path,timestamp)
     if trend not in [1, -1]:
         logger.info('No decisive trend.')
         return None
@@ -220,12 +299,57 @@ def new_trade(smart_api, file_path, spot_ltp):
         })
     return trade
 
-def process(smart_api, file_path):
+def get_ltp_from_file(file_path,timestamp):
+    """
+    Return the 'close' price from the row with the timestamp closest to the given one.
+
+    Args:
+        file_path (str): Path to the CSV file with 'timestamp' and 'close' columns.
+        timestamp (str): Target timestamp string to match.
+
+    Returns:
+        float: The close price (LTP) closest to the given timestamp. Returns None if not found.
+    """
+    try:
+        df = pd.read_csv(file_path)
+    except Exception as e:
+        logger.error(f"Error reading file: {e}")
+        return None
+
+    if 'datetime' not in df.columns or 'close' not in df.columns:
+        logger.error("Missing required columns 'timestamp' or 'close'")
+        return None
+
+    # Convert to datetime
+    try:
+        df['timestamp'] = pd.to_datetime(df['datetime'])
+        target_time = pd.to_datetime(timestamp)
+    except Exception as e:
+        logger.error(f"Timestamp parsing error: {e}")
+        return None
+
+    if df.empty:
+        return None
+
+    # Find row with closest timestamp
+    df['time_diff'] = (df['timestamp'] - target_time).abs()
+    closest_row = df.loc[df['time_diff'].idxmin()]
+
+    return closest_row['close']
+
+
+def process(smart_api, file_path, tick_time = None):
     """Main decision logic: Entry or Exit based on trend."""
-    spot_ltp = get_ltp(smart_api)
+    global simulate_timestamp
+    simulate_timestamp = tick_time
+
+    if config.SIMULATE :
+        spot_ltp = get_ltp_from_file(file_path,tick_time)
+    else :
+        spot_ltp = get_ltp(smart_api, '99926000', 'NIFTY', 'NSE', tick_time)
     if is_there_existing_trade():
         active_positions = get_active_positions()
-        trend_now = get_trend(file_path)
+        trend_now = get_trend(file_path, tick_time)
         df = pd.read_csv(config.ACTIVE_TRADES_CSV)
         opt_type = df['opt_type'].iloc[0]
         expiry = datetime.strptime(df['expiry'].iloc[0], "%d%b%y").date()
@@ -239,20 +363,20 @@ def process(smart_api, file_path):
             logger.info('Exited on expiry.')
             return
         if trend_now == 0 :
-            logger.info('Trend unchanged.')
+            #logger.info(f"{tick_time} Trend unchanged, Trend {trend_now}.")
             return
 
         if (opt_type == 'CE' and trend_now == 1) or (opt_type == 'PE' and trend_now == -1):
-            logger.info('Trend unchanged.')
+            #logger.info(f"{tick_time} Trend unchanged. Option_type {opt_type}, Trend {trend_now}")
             return
 
         exit_positions = process_spread_positions_exit(smart_api, active_positions)
-        if config.LIVE:
+        if config.LIVE and not config.SIMULATE:
             place_order.main(smart_api, exit_positions, 'EXIT')
         logger.info('Exited on trend reversal.')
 
     if not is_there_existing_trade():
-        trade = new_trade(smart_api, file_path, spot_ltp)
+        trade = new_trade(smart_api, file_path, spot_ltp,tick_time)
         if not trade:
             return
         if config.OPTION_BUYING:

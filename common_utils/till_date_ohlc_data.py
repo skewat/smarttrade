@@ -26,10 +26,8 @@ def combine_todays_ohlc(existing_df, minute_csv):
     Returns:
         pd.DataFrame: Combined DataFrame with updated OHLC data.
     """
-    #today = datetime.today().strftime('%Y-%m-%d')
-    #if not minute_csv.empty:
-    #    return existing_df
-    #    minute_csv = f"t_nifty50_ohlc_{today}.csv"
+    if not os.path.exists(minute_csv):
+        return existing_df
     minute_df = pd.read_csv(minute_csv, parse_dates=['minute'])
     minute_df.rename(columns={'minute': 'datetime'}, inplace=True)
 
@@ -40,23 +38,19 @@ def combine_todays_ohlc(existing_df, minute_csv):
     ]
 
     minute_df.set_index('datetime', inplace=True)
-    #hourly_df = minute_df
-    hourly_df = minute_df.resample('1M', label='right', closed='right').agg({
+    resampled_df = minute_df.resample('1T', label='right', closed='right').agg({
         'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
     }).dropna().reset_index()
-    print(hourly_df)
-    hourly_df['datetime'] = hourly_df['datetime'] - pd.Timedelta(minutes=45)
-    hourly_df = hourly_df[
-        (hourly_df['datetime'].dt.time >= time(9, 15)) &
-        (hourly_df['datetime'].dt.time <= time(15, 15))
+    resampled_df = resampled_df[
+        (resampled_df['datetime'].dt.time >= time(9, 15)) &
+        (resampled_df['datetime'].dt.time <= time(15, 30))
     ]
 
     existing_df = existing_df[['datetime', 'open', 'high', 'low', 'close']]
-    combined_df = pd.concat([existing_df, hourly_df])
+    combined_df = pd.concat([existing_df, resampled_df])
     combined_df['datetime'] = pd.to_datetime(combined_df['datetime']).dt.tz_localize(None)
     combined_df = combined_df.drop_duplicates(subset='datetime').sort_values('datetime').reset_index(drop=True)
 
-    #print(combined_df)
     return combined_df
 
 def connect_angeloone():
@@ -176,7 +170,8 @@ def get_daily_data(smartApi, filename_prefix="daily_data"):
     else:
         # If file does not exist, fetch and save
         print(f"Fetching new data and saving to file: {filename}")
-        df = fetch_data(smartApi)  # Your function
+        data = fetch_data(smartApi)  # Your function
+        df = pd.DataFrame(data["data"], columns=["Datetime", "Open", "High", "Low", "Close", "Volume"])
         df.to_csv(filename, index=False)
 
     return df
@@ -191,19 +186,16 @@ def fetch_ohlc(smartApi):
     Returns:
         pd.DataFrame: DataFrame with OHLC data.
     """
-    data = get_daily_data(smartApi)
-    df = pd.DataFrame(data["data"], columns=["Datetime", "Open", "High", "Low", "Close", "Volume"])
+    df = get_daily_data(smartApi)
     df["Datetime"] = pd.to_datetime(df["Datetime"])
     df.set_index("Datetime", inplace=True)
     return df
 
 def main(smartApi):
-    #smartApi = connect_angeloone()
     if not smartApi:
         sys.exit("Failed while connecting to server.")
 
     today = datetime.today().date()
-    # today = datetime.today().date() + timedelta(days=1)
     data_file = f"/home/ckewat/options_strategy/smarttrade/data/ohlc_data/t_nifty50_ohlc_{today}.csv"
     df = pd.DataFrame()
     if not os.path.exists(data_file):
@@ -212,7 +204,6 @@ def main(smartApi):
     df = fetch_ohlc(smartApi).reset_index()
     df.columns = df.columns.str.lower()
     df['datetime'] = pd.to_datetime(df['datetime']).dt.tz_localize(None)
-
     return combine_todays_ohlc(df,data_file)
 
 if __name__ == "__main__":

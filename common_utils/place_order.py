@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import pandas as pd
+from logzero import logger
 from SmartApi import SmartConnect
 from datetime import datetime
 import pprint 
@@ -15,7 +16,7 @@ class StrategyManager:
         self.smart_api = smart_api
 
     def take_entry_positions(self, positions):
-        print("\n\nEvent: Taking Entry")
+        logger.info("Event: Taking Entry")
 
         #print(positions)
         # Sort positions so that BUY orders come before SELL
@@ -28,12 +29,12 @@ class StrategyManager:
         open_positions = self.smart_api.position()
         for data in open_positions['data'] :
             if position.data['symbol'] == data['tradingsymbol'] and data['netqty'] >= position.data['quantity']:
-                print('There is valid position to exit')
+                logger.info('There is valid position to exit')
                 return True
         return False
 
     def exit_positions(self, positions):
-        print("\n\nEvent: Exiting Positions")
+        logger.info("Event: Exiting Positions")
 
         # Sort positions so that BUY orders come before SELL
         positions = sorted(positions, key=lambda x: x.data["order_type"] != "BUY")
@@ -42,7 +43,7 @@ class StrategyManager:
             if self._open_position(position):
                 order = self._place_order(position)
             else:
-                print('There is no valid position to exit')
+                logger.info('There is no valid position to exit')
 
     def _place_order(self, position):
         order = {
@@ -59,7 +60,7 @@ class StrategyManager:
         }
 
         try:
-            print('Place order...\n',order)
+            logger.info('Placing order...')
             response = self.smart_api.placeOrderFullResponse(order)
             order_id = response["data"]["orderid"]
             status = self._get_order_status(order_id)
@@ -67,7 +68,7 @@ class StrategyManager:
                 raise Exception(f"Order status not valid: {status}")
             return order
         except Exception as e:
-            print(f"Order placement failed: {e}")
+            logger.error(f"Order placement failed: {e}")
             return None
 
     def _get_order_status(self, order_id):
