@@ -12,6 +12,6 @@ LOTSIZE = 75
 ACTIVE_TRADES_CSV = "active_buying_trades.csv"
 ARCHIVE_TRADES_CSV = "archive_buying_trades.csv"
 LIVE = True
-TESTING = False
+TESTING = True
 CSV_FILE = 'sma_supertrend_hourly_candle.csv'
 

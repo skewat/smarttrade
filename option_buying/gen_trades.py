@@ -22,12 +22,21 @@ def main():
     smart_api = None
     if not config.SIMULATE :
         signal.signal(signal.SIGINT, core.signal_handler)
-        smart_api = angelone.connect()
+        connector = angelone.AngelOneConnector()
+        connector.connect()
+        smart_api = connector.smart_api
+
         if not smart_api:
             sys.exit("Failed to connect with broker API.")
+        logger.info('Connected to broker ...')
 
     while True:
         now = datetime.now()
+        if not connector.is_token_valid():
+            connector.connect()
+            smart_api = connector.smart_api
+
+        logger.info(f"....{core.is_within_time_range()}..{config.TESTING}")
         if core.is_within_time_range() or config.TESTING:
             if not config.SIMULATE:
                 ohlc_df = core.till_date_ohlc_data.main(smart_api)
@@ -47,7 +56,10 @@ def main():
             logger.info(f"Outside trading hours: {datetime.now().strftime('%H:%M:%S')}")
 
         next_minute = (now + timedelta(minutes=1)).replace(second=0, microsecond=0)
-        time.sleep((next_minute - datetime.now()).total_seconds())
+        try : 
+            time.sleep((next_minute - datetime.now()).total_seconds())
+        except:
+            pass
 
     angelone.logout(smart_api)
 

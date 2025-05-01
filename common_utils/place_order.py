@@ -7,6 +7,7 @@ from datetime import datetime
 import pprint 
 import time
 
+from common_utils import smartapi_wrapper
 # Set pandas display preferences
 pd.set_option('display.max_rows', None)
 pd.set_option('display.width', None)
@@ -15,6 +16,7 @@ pd.set_option('display.width', None)
 class StrategyManager:
     def __init__(self, smart_api):
         self.smart_api = smart_api
+        self.wrapper_api = smartapi_wrapper.SmartAPIWrapper(smart_api)
 
     def take_entry_positions(self, positions):
         logger.info("Event: Taking Entry")
@@ -62,9 +64,12 @@ class StrategyManager:
 
         try:
             logger.info('Placing order...')
-            print(self.smart_api,order)
-            response = self.smart_api.placeOrderFullResponse(order)
+            pprint.pprint(self.smart_api)
+            pprint.pprint(order)
+            #response = self.smart_api.placeOrderFullResponse(order)
+            response = self.wrapper_api.place_order(order)
             order_id = response["data"]["orderid"]
+            pprint.pprint(response)
             if response['message'] != 'SUCCESS' :
                 raise Exception(f"Order status not valid: {response['message']}")
             return order
