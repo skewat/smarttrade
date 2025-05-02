@@ -20,11 +20,11 @@ import gen_trades_core as core
 def main():
 
     smart_api = None
+    connector = angelone.AngelOneConnector()
+    connector.connect()
+    smart_api = connector.smart_api
     if not config.SIMULATE :
         signal.signal(signal.SIGINT, core.signal_handler)
-        connector = angelone.AngelOneConnector()
-        connector.connect()
-        smart_api = connector.smart_api
 
         if not smart_api:
             sys.exit("Failed to connect with broker API.")
@@ -32,11 +32,6 @@ def main():
 
     while True:
         now = datetime.now()
-        if not connector.is_token_valid():
-            connector.connect()
-            smart_api = connector.smart_api
-
-        logger.info(f"....{core.is_within_time_range()}..{config.TESTING}")
         if core.is_within_time_range() or config.TESTING:
             if not config.SIMULATE:
                 ohlc_df = core.till_date_ohlc_data.main(smart_api)
@@ -44,13 +39,13 @@ def main():
                     sys.exit('OHLC data unavailable.')
                 supertrend_file = core.supertrend.main(ohlc_df)
                 sma_file = core.sma.main(supertrend_file)
-                core.process(smart_api, sma_file)
+                core.process(connector, sma_file)
             else :
-                start = "2025-04-29 09:29:00"
-                end = "2025-04-29 15:30:00"
+                start = "2025-05-02 09:29:00"
+                end = "2025-05-02 15:30:00"
                 minute_range = pd.date_range(start=start, end=end, freq='T')
                 for timestamp in minute_range:
-                    core.process(smart_api, config.CSV_FILE,timestamp)
+                    core.process(connector, config.CSV_FILE,timestamp)
                 return 
         else:
             logger.info(f"Outside trading hours: {datetime.now().strftime('%H:%M:%S')}")
@@ -61,7 +56,7 @@ def main():
         except:
             pass
 
-    angelone.logout(smart_api)
+    connector.logout()
 
 if __name__ == '__main__':
     main()

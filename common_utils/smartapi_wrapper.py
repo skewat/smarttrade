@@ -1,27 +1,19 @@
 import time
-import logging
+from logzero import logger as logging
 import pandas as pd
 import requests
-
-# -------------------------------
-# Logging Setup
-# -------------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format='[%(asctime)s] %(levelname)s - %(message)s',
-    datefmt='%H:%M:%S'
-)
 
 class SmartAPIWrapper:
     """A safe wrapper around SmartAPI with retries for network and rate-limit errors."""
 
-    def __init__(self, smart_api, max_retries=5, sleep_seconds=1):
+    def __init__(self, smart_api, max_retries=2, sleep_seconds=1):
         self.smart_api = smart_api
         self.max_retries = max_retries
         self.sleep_seconds = sleep_seconds
 
     def _is_retryable_exception(self, exception):
         """Check if the exception is retryable based on type or message."""
+        return True
         if isinstance(exception, (requests.exceptions.RequestException, )):
             return True
 
@@ -41,31 +33,23 @@ class SmartAPIWrapper:
             try:
                 logging.info(f"Calling API: {func_name} (Attempt {attempt})")
                 # Optional: log args safely if needed
-                # logging.debug(f"Args: {args}, Kwargs: {kwargs}")
+                logging.info(f"Args: {args}, Kwargs: {kwargs}")
 
                 response = func(*args, **kwargs)
 
                 # Handle API-level error responses
                 if isinstance(response, dict) and response.get('status') == 'error':
                     error_message = str(response.get('message', '')).lower()
-                    if self._is_retryable_exception(error_message):
-                        raise Exception(error_message)
-                    else:
-                        raise Exception(f"Non-retryable error: {error_message}")
+                    raise Exception(error_message)
 
                 logging.info(f"Success: {func_name}")
                 return response
 
             except Exception as e:
-                if self._is_retryable_exception(e):
-                    logging.warning(f"[Retryable Error] {func_name} attempt {attempt} failed: {e}")
-                    if attempt < self.max_retries:
-                        time.sleep(self.sleep_seconds)
-                    else:
-                        logging.error(f"{func_name} failed after {self.max_retries} attempts.")
-                        raise
+                if attempt < self.max_retries:
+                    time.sleep(self.sleep_seconds)
                 else:
-                    logging.error(f"[Fatal Error] {func_name} failed: {e}")
+                    logging.error(f"{func_name} failed after {self.max_retries} attempts.")
                     raise
 
     # -------------------------------
@@ -82,6 +66,7 @@ class SmartAPIWrapper:
 
     def place_order(self, order_params):
         """Place an order and get full response"""
+        print(order_params)
         return self._retry_api_call(self.smart_api.placeOrderFullResponse, order_params)
 
     def get_order_book(self):

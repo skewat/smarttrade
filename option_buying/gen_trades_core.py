@@ -271,6 +271,7 @@ def get_active_positions():
 def new_trade(smart_api, file_path, spot_ltp,timestamp=None):
     """Create a new trade idea based on indicator trend."""
     trend = get_trend(file_path,timestamp)
+    
     if trend not in [1, -1]:
         logger.info(f"No decisive trend. {trend}")
         return None
@@ -338,10 +339,11 @@ def get_ltp_from_file(file_path,timestamp):
     return closest_row['close']
 
 
-def process(smart_api, file_path, tick_time = None):
+def process(connector, file_path, tick_time = None):
     """Main decision logic: Entry or Exit based on trend."""
     global simulate_timestamp
     simulate_timestamp = tick_time
+    smart_api = connector.smart_api
 
     if config.SIMULATE :
         spot_ltp = get_ltp_from_file(file_path,tick_time)
@@ -359,7 +361,7 @@ def process(smart_api, file_path, tick_time = None):
         if expiry == today and current_time >= time(14, 50):
             exit_positions = process_spread_positions_exit(smart_api, active_positions)
             if config.LIVE:
-                place_order.main(smart_api, exit_positions, 'EXIT')
+                place_order.main(connector, exit_positions, 'EXIT')
             logger.info('Exited on expiry.')
             return
         if trend_now == 0 :
@@ -372,7 +374,7 @@ def process(smart_api, file_path, tick_time = None):
 
         exit_positions = process_spread_positions_exit(smart_api, active_positions)
         if config.LIVE and not config.SIMULATE:
-            place_order.main(smart_api, exit_positions, 'EXIT')
+            place_order.main(connector, exit_positions, 'EXIT')
         logger.info('Exited on trend reversal.')
 
     if not is_there_existing_trade():
@@ -385,7 +387,7 @@ def process(smart_api, file_path, tick_time = None):
             positions = process_spread_positions_entry(smart_api, trade)
 
         if config.LIVE:
-            place_order.main(smart_api, positions, 'ENTRY')
+            place_order.main(connector, positions, 'ENTRY')
         logger.info('Entered new position.')
 
 def is_within_time_range():

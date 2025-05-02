@@ -5,22 +5,26 @@ from datetime import datetime,time, timedelta
 from logzero import logger 
 import sys
 import os
-from login_details import *
-from logzero import logger 
 import pyotp
 import sys
 import signal
-import os
 import copy 
 import csv
-import opt_position 
-import till_date_ohlc_data
-import expiries_of_year
-import supertrend
-import sma
-import place_order
-from common_utils import symboltoken
 
+# Project Imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+base_path = os.path.abspath(os.path.join(current_dir, ".."))
+sys.path.append(base_path)
+
+from common_utils import symboltoken
+from common_utils import angelone 
+from common_utils import opt_position 
+from common_utils import till_date_ohlc_data
+from common_utils import expiries_of_year
+from common_utils import supertrend
+from common_utils import sma
+from common_utils import place_order
+import config 
 
 LOTSIZE = 75
 ACTIVE_TRADES_CSV = "active_spread_trades.csv"
@@ -254,45 +258,6 @@ def new_trade(file_name, spot_ltp):
 
     return trades
 
-def connect_angelone():
-    ''' Connect to AngelOne using API '''
-    smartApi = SmartConnect(api_key)
-    try:
-        token = "YDGLN23VQ7KBI4QEY6PR2OA7TE"
-        totp = pyotp.TOTP(token).now()
-    except Exception as e:
-        logger.error("Invalid Token: The provided token is not valid.")
-        raise e
-    
-    correlation_id = "abcde"
-    data = smartApi.generateSession(username, pwd, totp)
-    
-    if data['status'] == False:
-        logger.error(data)
-    
-    else:
-        # login api call
-        # logger.info(f"You Credentials: {data}")
-        authToken = data['data']['jwtToken']
-        refreshToken = data['data']['refreshToken']
-        # fetch the feedtoken
-        feedToken = smartApi.getfeedToken()
-        # fetch User Profile
-        res = smartApi.getProfile(refreshToken)
-        smartApi.generateToken(refreshToken)
-        res = res['data']['exchanges']
-        print("\n\n\n")
-        return smartApi
-
-def logout(smartAPi):
-    # logout from AngenOne API
-    try:
-        logout = smartApi.terminateSession('AAAE362329')
-        print("\n\n\n")
-        logger.info("Logout Successfull")
-    except Exception as e:
-        logger.exception(f"Logout failed: {e}")
-
 def signal_handler(sig, frame):
     ''' This is system signal handelr not related to stock/trend signal '''
     print("\nExiting gracefully...")
@@ -349,21 +314,16 @@ def ohlc_with_retry(delay_seconds=5):
         else:
             return ohlc_df
 
-def connect_with_retry(delay_seconds=5):
-    while True:
-        smartApi = connect_angelone()
-        if smartApi:
-            print("Connected successfully to AngelOne!")
-            return smartApi
-        else:
-            print(f"Failed to connect. Retrying in {delay_seconds} seconds...")
-            time.sleep(delay_seconds)
 
 if __name__ == '__main__':
-    smartApi = connect_with_retry()
+
+    connector = angelone.AngelOneConnector()
+    connector.connect()
+    smartApi = connector.smart_api
+
     ohlc_df = till_date_ohlc_data.main(smartApi)
 
     super_file = supertrend.main(ohlc_df)
     sma_file = sma.main(super_file)
     main(smartApi, sma_file)
-    logout(smartApi)
+    connector.logout()

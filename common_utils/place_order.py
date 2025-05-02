@@ -85,8 +85,9 @@ class StrategyManager:
                     return order["status"]
         return "Order not found"
 
-def main(smart_api, positions,position_type='ENTRY'):
-
+def main(connector, positions,position_type='ENTRY'):
+    connector.connect()
+    smart_api = connector.smart_api
     manager = StrategyManager(smart_api)
     if position_type == 'ENTRY' :
         manager.take_entry_positions(positions)
