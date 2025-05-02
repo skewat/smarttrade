@@ -24,6 +24,7 @@ from common_utils import (
     supertrend,
     sma,
     angelone,
+    smartapi_wrapper,
 )
 
 # ========================================
@@ -53,20 +54,22 @@ def write_positions_to_csv(positions, filename, append):
         for position in positions:
             writer.writerow(position.data)
 
-def get_ltp(smart_api, token='99926000', symbol='NIFTY', exchange='NSE', timestamp = None):
+def get_ltp(connector, token='99926000', symbol='NIFTY', exchange='NSE', timestamp = None):
     """Fetch latest traded price (LTP) from API."""
     global simulate_timestamp
     if config.SIMULATE :
         return get_ltp_from_file(config.CSV_FILE, simulate_timestamp)
     else:
-        data = smart_api.ltpData(exchange, symbol, token)
+        smart_api = connector.smart_api
+        wrapper_api = smartapi_wrapper.SmartAPIWrapper(smart_api)
+        data = wrapper_api.get_ltp(exchange,symbol,token)
         return data['data']['ltp']
 
 # ========================================
 # ENTRY & EXIT PROCESSORS
 # ========================================
 
-def process_option_buy_entry(smart_api, trade_info, lots=1):
+def process_option_buy_entry(connector, trade_info, lots=1):
     """Process entry for single option buying."""
     position = opt_position.OptionPosition({
         'expiry': trade_info['expiry'],
@@ -79,20 +82,20 @@ def process_option_buy_entry(smart_api, trade_info, lots=1):
     position.set('symbol_token', trade_info['atm_token'])
     position.set('symbol', trade_info['atm_symbol'])
     position.set('order_type', 'BUY')
-    position.set('price', get_ltp(smart_api, trade_info['atm_token'], trade_info['atm_symbol'], 'NFO'))
+    position.set('price', get_ltp(connector, trade_info['atm_token'], trade_info['atm_symbol'], 'NFO'))
     position.set('time_stamp', datetime.now().strftime("%d-%m-%Y:%H:%M:%S"))
 
     write_positions_to_csv([position], config.ACTIVE_TRADES_CSV, 'w')
     write_positions_to_csv([position], config.ARCHIVE_TRADES_CSV, 'a')
     return [position]
 
-def process_option_buy_exit(smart_api, positions):
+def process_option_buy_exit(connector, positions):
     """Exit active positions."""
     exit_positions = []
     for pos in positions:
         position = opt_position.OptionPosition(pos)
         position.set('order_type', 'BUY' if position.get('order_type') == 'SELL' else 'SELL')
-        position.set('price', get_ltp(smart_api, position.get('symbol_token'), position.get('symbol'), 'NFO'))
+        position.set('price', get_ltp(connector, position.get('symbol_token'), position.get('symbol'), 'NFO'))
         position.set('position_type', 'EXIT')
         position.set('time_stamp', datetime.now())
         exit_positions.append(position)
@@ -122,26 +125,6 @@ def find_valid_expiry(expiries):
     dt = datetime.today()
     expiry = next((datetime.strptime(e, "%d%b%y") for e in expiries if datetime.strptime(e, "%d%b%y") > dt + timedelta(days=6)), None)
     return expiry.strftime('%d%b%y').upper() if expiry else None
-
-def _get_trend(file_path):
-    """Read latest trend signal from indicator file.
-    Return latest signal if there is a change from previous signal (1 to -1 or -1 to 1),
-    else return 0.
-    """
-    df = pd.read_csv(file_path)
-
-    if len(df) < 2:
-        # Not enough data to detect a change
-        return 0
-
-    prev_signal = df.iloc[-2]['signals']
-    latest_signal = df.iloc[-1]['signals']
-
-    if prev_signal != latest_signal and latest_signal in [1, -1] and prev_signal in [1, -1]:
-        return latest_signal
-    else:
-        return 0
-
 
 def get_trend(file_path, timestamp = None) -> int:
     """
@@ -302,12 +285,11 @@ def process(connector, file_path, tick_time = None):
     """Main decision logic: Entry or Exit based on trend."""
     global simulate_timestamp
     simulate_timestamp = tick_time
-    smart_api = connector.smart_api
 
     if config.SIMULATE :
         spot_ltp = get_ltp_from_file(file_path,tick_time)
     else :
-        spot_ltp = get_ltp(smart_api, '99926000', 'NIFTY', 'NSE', tick_time)
+        spot_ltp = get_ltp(connector, '99926000', 'NIFTY', 'NSE', tick_time)
     if is_there_existing_trade():
         active_positions = get_active_positions()
         trend_now = get_trend(file_path, tick_time)
@@ -318,7 +300,7 @@ def process(connector, file_path, tick_time = None):
         current_time = datetime.now().time()
 
         if expiry == today and current_time >= time(14, 50):
-            exit_positions = process_option_buy_exit(smart_api, active_positions)
+            exit_positions = process_option_buy_exit(connector, active_positions)
             if config.LIVE:
                 place_order.main(connector, exit_positions, 'EXIT')
             logger.info('Exited on expiry.')
@@ -331,7 +313,7 @@ def process(connector, file_path, tick_time = None):
             logger.info(f"{tick_time} Trend unchanged. Option_type {opt_type}, Trend {trend_now}")
             return
 
-        exit_positions = process_option_buy_exit(smart_api, active_positions)
+        exit_positions = process_option_buy_exit(connector, active_positions)
         if config.LIVE:
             place_order.main(connector, exit_positions, 'EXIT')
         logger.info('Exited on trend reversal.')
@@ -341,7 +323,7 @@ def process(connector, file_path, tick_time = None):
         if not trade:
             return
         if config.OPTION_BUYING:
-            positions = process_option_buy_entry(smart_api, trade)
+            positions = process_option_buy_entry(connector, trade)
 
         if config.LIVE:
             place_order.main(connector, positions, 'ENTRY')
