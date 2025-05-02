@@ -1,3 +1,5 @@
+from datetime import datetime
+
 #Add your login details 
 API_KEY = 'WfhXGr5z'
 USERNAME = 'AAAE362329'
@@ -9,9 +11,11 @@ PAPER_TRADING = False
 SIMULATE = False
 OPTION_BUYING = True
 LOTSIZE = 75
-ACTIVE_TRADES_CSV = "active_buying_trades.csv"
-ARCHIVE_TRADES_CSV = "archive_buying_trades.csv"
 LIVE = True
-TESTING = True
+TESTING = False
 CSV_FILE = 'sma_supertrend_hourly_candle.csv'
+
+today = datetime.today().date()
+ACTIVE_TRADES_CSV = f"active_buying_trades_{today}.csv"
+ARCHIVE_TRADES_CSV = "archive_buying_trades.csv"
 
