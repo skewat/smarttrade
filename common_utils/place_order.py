@@ -95,8 +95,6 @@ def main(connector, positions,position_type='ENTRY'):
         manager.take_entry_positions(positions)
     if position_type == 'EXIT' :
         manager.exit_positions(positions)
-    # Avoid API call with a second 
-    time.sleep(2)
 
 
 
