@@ -50,9 +50,12 @@ def main():
 
         next_minute = (now + timedelta(minutes=1)).replace(second=0, microsecond=0)
         try : 
-            time.sleep((next_minute - datetime.now()).total_seconds())
-        except:
-            pass
+            sleep_time = (next_minute - datetime.now()).total_seconds()
+            if sleep_time > 0 :
+                time.sleep(sleep_time)
+        except Exception as e:
+            logger.exception(f"{e}")
+            connector.logout()
 
     connector.logout()
 

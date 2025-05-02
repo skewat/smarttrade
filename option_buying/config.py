@@ -6,7 +6,7 @@ TOKEN = "YDGLN23VQ7KBI4QEY6PR2OA7TE"
 
 # Sellect as apropriate 
 PAPER_TRADING = False
-SIMULATE = True
+SIMULATE = False
 OPTION_BUYING = True
 LOTSIZE = 75
 ACTIVE_TRADES_CSV = "active_buying_trades.csv"
