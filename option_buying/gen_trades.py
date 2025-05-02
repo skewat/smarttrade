@@ -18,17 +18,15 @@ from common_utils import angelone
 import gen_trades_core as core
 
 def main():
-
-    smart_api = None
     connector = angelone.AngelOneConnector()
     connector.connect()
     smart_api = connector.smart_api
     if not config.SIMULATE :
         signal.signal(signal.SIGINT, core.signal_handler)
-
         if not smart_api:
             sys.exit("Failed to connect with broker API.")
-        logger.info('Connected to broker ...')
+        else:
+            logger.info('Connected to broker ...')
 
     while True:
         now = datetime.now()

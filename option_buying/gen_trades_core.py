@@ -86,33 +86,7 @@ def process_option_buy_entry(smart_api, trade_info, lots=1):
     write_positions_to_csv([position], config.ARCHIVE_TRADES_CSV, 'a')
     return [position]
 
-def process_spread_positions_entry(smart_api, trade_info, lots=1):
-    """Process entry for debit spreads (bullish/bearish spreads)."""
-    pos1 = opt_position.OptionPosition({
-        'expiry': trade_info['expiry'],
-        'opt_type': trade_info['type'],
-        'quantity': lots * config.LOTSIZE,
-        'position_type': 'ENTRY',
-        'strike': trade_info['strike_price_otm'],
-        'symbol_token': trade_info['otm_token'],
-        'symbol': trade_info['otm_symbol'],
-        'order_type': 'SELL',
-        'price': get_ltp(smart_api, trade_info['otm_token'], trade_info['otm_symbol'], 'NFO'),
-        'time_stamp': datetime.now(),
-    })
-
-    pos2 = opt_position.OptionPosition(copy.deepcopy(pos1.data))
-    pos2.set('strike', trade_info['strike_price_atm'])
-    pos2.set('symbol_token', trade_info['atm_token'])
-    pos2.set('symbol', trade_info['atm_symbol'])
-    pos2.set('order_type', 'BUY')
-    pos2.set('price', get_ltp(smart_api, trade_info['atm_token'], trade_info['atm_symbol'], 'NFO'))
-
-    write_positions_to_csv([pos1, pos2], config.ACTIVE_TRADES_CSV, 'w')
-    write_positions_to_csv([pos1, pos2], config.ARCHIVE_TRADES_CSV, 'a')
-    return [pos1, pos2]
-
-def process_spread_positions_exit(smart_api, positions):
+def process_option_buy_exit(smart_api, positions):
     """Exit active positions."""
     exit_positions = []
     for pos in positions:
@@ -139,20 +113,6 @@ def option_buy_strategy(option_expiries, spot_ltp, option_type):
         return None
     return {
         'strike_price_atm': int(spot_ltp // 50) * 50,
-        'expiry': expiry,
-        'type': option_type
-    }
-
-def debit_spread_strategy(option_expiries, spot_ltp, option_type):
-    """Setup debit spread strategy."""
-    expiry = find_valid_expiry(option_expiries)
-    if not expiry:
-        return None
-    strike_price_atm = int(spot_ltp // 50) * 50
-    strike_price_otm = strike_price_atm + 200 if option_type == 'CE' else strike_price_atm - 200
-    return {
-        'strike_price_atm': strike_price_atm,
-        'strike_price_otm': strike_price_otm,
         'expiry': expiry,
         'type': option_type
     }
@@ -268,9 +228,10 @@ def get_active_positions():
     with open(config.ACTIVE_TRADES_CSV, mode='r', newline='') as file:
         return list(csv.DictReader(file))
 
-def new_trade(smart_api, file_path, spot_ltp,timestamp=None):
+def new_trade(file_path, spot_ltp,timestamp=None):
     """Create a new trade idea based on indicator trend."""
     trend = get_trend(file_path,timestamp)
+    trade = None
     
     if trend not in [1, -1]:
         logger.info(f"No decisive trend. {trend}")
@@ -282,8 +243,6 @@ def new_trade(smart_api, file_path, spot_ltp,timestamp=None):
 
     if config.OPTION_BUYING:
         trade = option_buy_strategy(option_expiries, spot_ltp, option_type)
-    else:
-        trade = debit_spread_strategy(option_expiries, spot_ltp, option_type)
 
     if trade:
         atm_t, otm_t, atm_s, otm_s = symboltoken.get_symbol_token(
@@ -359,32 +318,30 @@ def process(connector, file_path, tick_time = None):
         current_time = datetime.now().time()
 
         if expiry == today and current_time >= time(14, 50):
-            exit_positions = process_spread_positions_exit(smart_api, active_positions)
+            exit_positions = process_option_buy_exit(smart_api, active_positions)
             if config.LIVE:
                 place_order.main(connector, exit_positions, 'EXIT')
             logger.info('Exited on expiry.')
             return
         if trend_now == 0 :
-            #logger.info(f"{tick_time} Trend unchanged, Trend {trend_now}.")
+            logger.info(f"{tick_time} Trend unchanged, Trend {trend_now}.")
             return
 
         if (opt_type == 'CE' and trend_now == 1) or (opt_type == 'PE' and trend_now == -1):
-            #logger.info(f"{tick_time} Trend unchanged. Option_type {opt_type}, Trend {trend_now}")
+            logger.info(f"{tick_time} Trend unchanged. Option_type {opt_type}, Trend {trend_now}")
             return
 
-        exit_positions = process_spread_positions_exit(smart_api, active_positions)
-        if config.LIVE and not config.SIMULATE:
+        exit_positions = process_option_buy_exit(smart_api, active_positions)
+        if config.LIVE:
             place_order.main(connector, exit_positions, 'EXIT')
         logger.info('Exited on trend reversal.')
 
     if not is_there_existing_trade():
-        trade = new_trade(smart_api, file_path, spot_ltp,tick_time)
+        trade = new_trade(file_path, spot_ltp,tick_time)
         if not trade:
             return
         if config.OPTION_BUYING:
             positions = process_option_buy_entry(smart_api, trade)
-        else:
-            positions = process_spread_positions_entry(smart_api, trade)
 
         if config.LIVE:
             place_order.main(connector, positions, 'ENTRY')

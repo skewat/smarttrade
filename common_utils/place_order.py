@@ -64,12 +64,12 @@ class StrategyManager:
 
         try:
             logger.info('Placing order...')
-            pprint.pprint(self.smart_api)
-            pprint.pprint(order)
+            #pprint.pprint(self.smart_api)
+            #pprint.pprint(order)
             #response = self.smart_api.placeOrderFullResponse(order)
             response = self.wrapper_api.place_order(order)
             order_id = response["data"]["orderid"]
-            pprint.pprint(response)
+            #pprint.pprint(response)
             if response['message'] != 'SUCCESS' :
                 raise Exception(f"Order status not valid: {response['message']}")
             return order
@@ -86,13 +86,17 @@ class StrategyManager:
         return "Order not found"
 
 def main(connector, positions,position_type='ENTRY'):
+
     connector.connect()
     smart_api = connector.smart_api
+
     manager = StrategyManager(smart_api)
     if position_type == 'ENTRY' :
         manager.take_entry_positions(positions)
     if position_type == 'EXIT' :
         manager.exit_positions(positions)
+    # Avoid API call with a second 
+    time.sleep(2)
 
 
 

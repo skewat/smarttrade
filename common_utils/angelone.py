@@ -2,6 +2,7 @@ from SmartApi import SmartConnect
 import config
 from logzero import logger 
 import pyotp
+import time
 
 
 class AngelOneConnector:
@@ -13,27 +14,34 @@ class AngelOneConnector:
 
     def connect(self):
         '''Connect to AngelOne using SmartAPI'''
-        try:
-            self.smart_api = SmartConnect(api_key=config.API_KEY)
-
-            totp = pyotp.TOTP(config.TOKEN).now()
-            login_data = self.smart_api.generateSession(config.USERNAME, config.PWD, totp)
-
-            if not login_data.get("status"):
-                logger.error(f"Login failed: {login_data}")
-                raise Exception("Login failed")
-
-            self.auth_token = login_data["data"]["jwtToken"]
-            self.refresh_token = login_data["data"]["refreshToken"]
-            self.feed_token = self.smart_api.getfeedToken()
-
-            profile = self.smart_api.getProfile(refreshToken=self.refresh_token)
-            logger.info(f"Login successful.... ")
-
-        except Exception as e:
-            logger.exception("AngelOne connection failed.")
-            raise e
-
+        max_retries = 3
+        logger.info("Angelone connection request.... ")
+        for attempt in range(1, max_retries + 1):
+            try:
+                self.smart_api = SmartConnect(api_key=config.API_KEY)
+    
+                totp = pyotp.TOTP(config.TOKEN).now()
+                login_data = self.smart_api.generateSession(config.USERNAME, config.PWD, totp)
+    
+                if not login_data.get("status"):
+                    logger.error(f"Login failed attempt {attemp}: {login_data}")
+                    raise Exception("Login failed")
+    
+                self.auth_token = login_data["data"]["jwtToken"]
+                self.refresh_token = login_data["data"]["refreshToken"]
+                self.feed_token = self.smart_api.getfeedToken()
+    
+                profile = self.smart_api.getProfile(refreshToken=self.refresh_token)
+                logger.info(f"Login successful.... ")
+                return
+    
+            except Exception as e:
+                if attempt < max_retries:
+                    time.sleep(2)
+                else:
+                    logger.exception("AngelOne connection failed.")
+                    raise e
+    
     def is_token_valid(self):
         '''Check if the current access token is still valid'''
         if not self.smart_api or not self.refresh_token:

@@ -192,9 +192,6 @@ def fetch_ohlc(smartApi):
     return df
 
 def main(smartApi):
-    if not smartApi:
-        sys.exit("Failed while connecting to server.")
-
     today = datetime.today().date()
     data_file = f"/home/ckewat/options_strategy/smarttrade/data/ohlc_data/t_nifty50_ohlc_{today}.csv"
     df = pd.DataFrame()
