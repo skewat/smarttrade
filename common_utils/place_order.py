@@ -38,7 +38,7 @@ class StrategyManager:
         data = self.get_latest_completed_order(order_book, target_tradingsymbol, order_type)
         # if order rejected or failed 
         if not data : 
-            logger.info("Looks like primary order failed..")
+            logger.warning("Looks like primary order failed..")
             return
 
         price = data['averageprice']
