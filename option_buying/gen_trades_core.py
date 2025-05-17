@@ -5,6 +5,7 @@ import sys
 import csv
 import copy
 from datetime import datetime, timedelta, time
+import time
 import pandas as pd
 from logzero import logger
 import signal
@@ -327,6 +328,11 @@ def process(connector, file_path, tick_time = None):
 
         if config.LIVE:
             place_order.main(connector, positions, 'ENTRY')
+            time.sleep(2) # give for prder to reflect
+            positions = place_order.main(connector, positions, 'TARGET', 1.5)
+            #place_order.main(connector, positions, 'ENTRY', 'TARGET')
+
+
         logger.info('Entered new position.')
 
 def is_within_time_range():

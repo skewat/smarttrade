@@ -12,7 +12,7 @@ SIMULATE = False
 OPTION_BUYING = True
 LOTSIZE = 75
 LIVE = True
-TESTING = False
+TESTING = True
 CSV_FILE = 'sma_supertrend_hourly_candle.csv'
 
 today = datetime.today().date()

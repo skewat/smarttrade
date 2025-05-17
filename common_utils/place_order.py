@@ -4,8 +4,10 @@ import pandas as pd
 from logzero import logger
 from SmartApi import SmartConnect
 from datetime import datetime
+from collections import defaultdict
 import pprint 
 import time
+import sys
 
 from common_utils import smartapi_wrapper
 # Set pandas display preferences
@@ -18,17 +20,67 @@ class StrategyManager:
         self.smart_api = smart_api
         self.wrapper_api = smartapi_wrapper.SmartAPIWrapper(smart_api)
 
-    def take_entry_positions(self, positions):
+    def take_entry_positions(self, positions,limit=None):
         logger.info("Event: Taking Entry")
 
-        #print(positions)
         # Sort positions so that BUY orders come before SELL
         positions = sorted(positions, key=lambda x: x.data["order_type"] != "BUY")
 
         for position in positions:
-            order = self._place_order(position)
+            order = self._place_order(position,limit)
+
+    # input is one position at a time 
+    def target_order(self,position, target_percent):
+        open_positions = self.smart_api.position()
+        order_book = self.smart_api.orderBook()
+        target_tradingsymbol = position[0].get('symbol')
+        order_type = position[0].get("order_type")
+        data = self.get_latest_completed_order(order_book, target_tradingsymbol, order_type)
+        # if order rejected or failed 
+        if not data : 
+            logger.info("Looks like primary order failed..")
+            return
+
+        price = data['averageprice']
+        for data in open_positions['data'] :
+            if position[0].get('symbol') == data['tradingsymbol'] and int(data['netqty']) >= int(position[0].get('quantity')):
+            #if 1:
+                logger.info('There is valid position to set target')
+                if order_type == 'SELL':
+                    position[0].set("order_type","BUY")
+                    percent = 1*float(target_percent)/100
+                    t_price =  round(float(price)*(1 - percent),2)
+                elif order_type == 'BUY':
+                    position[0].set("order_type","SELL")
+                    t_price =  round(float(price)*(1 + percent),2)
+                position[0].set("price", t_price)
+                return position
+
+    def get_latest_completed_order(self,orderbook, target_tradingsymbol, order_type):
+        """
+        Returns the latest completed order for the given tradingsymbol.
+        Assumes orderbook is a list of dicts.
+        """
+        
+        # Filter for matching tradingsymbol and complete status
+        matching_orders = [
+            order for order in orderbook['data']
+            if order.get('tradingsymbol') == target_tradingsymbol and  order.get('transactiontype') == order_type and order.get('status', '').lower() == 'complete'
+        ]
+    
+        if not matching_orders:
+            return None  # No match found
+    
+        # Sort by orderid 
+        sorted_orders = sorted(
+            matching_orders,
+            key=lambda x: x.get('orderid'),
+            reverse=True
+        )
+        return sorted_orders[0]
 
     def _open_position(self, position):
+        ''' This is to check if exit order is still open '''
         open_positions = self.smart_api.position()
         for data in open_positions['data'] :
             if position.data['symbol'] == data['tradingsymbol'] and data['netqty'] >= position.data['quantity']:
@@ -48,31 +100,59 @@ class StrategyManager:
             else:
                 logger.info('There is no valid position to exit')
 
-    def _place_order(self, position):
-        order = {
-            "variety": "NORMAL",
-            "tradingsymbol": position.get("symbol"),
-            "symboltoken": position.get("symbol_token"),
-            "transactiontype": position.get("order_type"),
-            "exchange": "NFO",
-            "ordertype": "MARKET",
-            "producttype": "CARRYFORWARD",
-            "duration": "DAY",
-            "quantity": position.get("quantity"),
-            "ordertag": "STRATEGY"
-        }
+    def _place_order(self, position, limit=None):
+        timeout = 5
+        poll_interval = 1
+        if limit :
+            logger.info("Placing limit target order")
+            order = {
+                "variety": "NORMAL",
+                "tradingsymbol": position.get("symbol"),
+                "symboltoken": position.get("symbol_token"),
+                "transactiontype": position.get("order_type"),
+                "exchange": "NFO",
+                "ordertype": "LIMIT",
+                "price": position.get("price"),
+                "producttype": "CARRYFORWARD",
+                "duration": "DAY",
+                "quantity": position.get("quantity"),
+                "ordertag": "TARGET_OPTION_BUY"
+            }
+        else :
+            order = {
+                "variety": "NORMAL",
+                "tradingsymbol": position.get("symbol"),
+                "symboltoken": position.get("symbol_token"),
+                "transactiontype": position.get("order_type"),
+                "exchange": "NFO",
+                "ordertype": "MARKET",
+                "producttype": "CARRYFORWARD",
+                "duration": "DAY",
+                "quantity": position.get("quantity"),
+                "ordertag": "STRATEGY"
+            }
 
         try:
             logger.info('Placing order...')
-            #pprint.pprint(self.smart_api)
-            #pprint.pprint(order)
-            #response = self.smart_api.placeOrderFullResponse(order)
             response = self.wrapper_api.place_order(order)
             order_id = response["data"]["orderid"]
-            #pprint.pprint(response)
             if response['message'] != 'SUCCESS' :
                 raise Exception(f"Order status not valid: {response['message']}")
+            logger.info("Waiting for order to be placed ..")
             return order
+
+            start_time = time.time()
+            while time.time() - start_time < timeout:
+                try:
+                    order_status = self._get_order_status(order_id)
+                    if order_status.lower() in ['cancelled','complete','rejected']:
+                        return order  # Order has reached final state
+                    else:
+                        logger.debug(f"Waiting... current status: {order_status}")
+                except Exception as e:
+                    logger.error(f"Error while fetching order status: {e}")
+                time.sleep(poll_interval)
+            raise TimeoutError(f"Order {order_id} did not complete within {timeout} seconds.")
         except Exception as e:
             logger.error(f"Order placement failed: {e}")
             return None
@@ -85,7 +165,7 @@ class StrategyManager:
                     return order["status"]
         return "Order not found"
 
-def main(connector, positions,position_type='ENTRY'):
+def main(connector, positions,position_type='ENTRY',target=0):
 
     connector.connect()
     smart_api = connector.smart_api
@@ -95,6 +175,10 @@ def main(connector, positions,position_type='ENTRY'):
         manager.take_entry_positions(positions)
     if position_type == 'EXIT' :
         manager.exit_positions(positions)
+    if position_type == 'TARGET' :
+        positions = manager.target_order(positions,target)
+        if positions :
+            manager.take_entry_positions(positions,'TARGET')
 
 
 

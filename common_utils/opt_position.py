@@ -11,7 +11,8 @@ data = {
      'strike': '',
      'symbolname': 'NIFTY',
      'symbol_token': '',
-     'symbol': ''
+     'symbol': '',
+     'price': 0,
 }
 
 '''
