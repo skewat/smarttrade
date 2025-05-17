@@ -28,6 +28,8 @@ from common_utils import (
     smartapi_wrapper,
 )
 
+strategy_name = "OPTION_BUY"
+
 # ========================================
 # UTILITY FUNCTIONS
 # ========================================
@@ -85,6 +87,7 @@ def process_option_buy_entry(connector, trade_info, lots=1):
     position.set('order_type', 'BUY')
     position.set('price', get_ltp(connector, trade_info['atm_token'], trade_info['atm_symbol'], 'NFO'))
     position.set('time_stamp', datetime.now().strftime("%d-%m-%Y:%H:%M:%S"))
+    position.set('strategy_name',strategy_name)
 
     write_positions_to_csv([position], config.ACTIVE_TRADES_CSV, 'w')
     write_positions_to_csv([position], config.ARCHIVE_TRADES_CSV, 'a')
@@ -99,6 +102,7 @@ def process_option_buy_exit(connector, positions):
         position.set('price', get_ltp(connector, position.get('symbol_token'), position.get('symbol'), 'NFO'))
         position.set('position_type', 'EXIT')
         position.set('time_stamp', datetime.now())
+        position.set('strategy_name',strategy_name)
         exit_positions.append(position)
 
     write_positions_to_csv(exit_positions, config.ARCHIVE_TRADES_CSV, 'a')

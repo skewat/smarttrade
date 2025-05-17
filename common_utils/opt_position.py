@@ -13,6 +13,7 @@ data = {
      'symbol_token': '',
      'symbol': '',
      'price': 0,
+     'strategy_name': "NONE',
 }
 
 '''
@@ -62,7 +63,8 @@ class OptionPosition:
                      'symbol',
                      'price',
                      'position_type',
-                     'time_stamp'
+                     'time_stamp',
+                     'strategy_name',
                     ]
 
     def get(self, key):

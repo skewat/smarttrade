@@ -116,7 +116,7 @@ class StrategyManager:
                 "producttype": "CARRYFORWARD",
                 "duration": "DAY",
                 "quantity": position.get("quantity"),
-                "ordertag": "TARGET_OPTION_BUY"
+                "ordertag":  position.get("strategy_name")
             }
         else :
             order = {
@@ -129,7 +129,7 @@ class StrategyManager:
                 "producttype": "CARRYFORWARD",
                 "duration": "DAY",
                 "quantity": position.get("quantity"),
-                "ordertag": "STRATEGY"
+                "ordertag": position.get("strategy_name")
             }
 
         try:
