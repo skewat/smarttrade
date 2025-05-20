@@ -42,17 +42,22 @@ class StrategyManager:
             return
 
         price = data['averageprice']
+        percent = 1*float(target_percent)/100
         for data in open_positions['data'] :
             if position[0].get('symbol') == data['tradingsymbol'] and int(data['netqty']) >= int(position[0].get('quantity')):
             #if 1:
                 logger.info('There is valid position to set target')
                 if order_type == 'SELL':
                     position[0].set("order_type","BUY")
-                    percent = 1*float(target_percent)/100
                     t_price =  round(float(price)*(1 - percent),2)
+                    # Roud to nearest 0.05
+                    t_price = round(round(t_price/ 0.05) * 0.05, 2)
+
                 elif order_type == 'BUY':
                     position[0].set("order_type","SELL")
                     t_price =  round(float(price)*(1 + percent),2)
+                    # Roud to nearest 0.05
+                    t_price = round(round(t_price/ 0.05) * 0.05, 2)
                 position[0].set("price", t_price)
                 return position
 
@@ -157,6 +162,10 @@ class StrategyManager:
             logger.error(f"Order placement failed: {e}")
             return None
 
+    def get_order_book(self):
+        order_book = self.smart_api.orderBook()
+        return order_book
+
     def _get_order_status(self, order_id):
         order_book = self.smart_api.orderBook()
         if order_book.get("status"):
@@ -165,7 +174,7 @@ class StrategyManager:
                     return order["status"]
         return "Order not found"
 
-def main(connector, positions,position_type='ENTRY',target=0):
+def main(connector, positions = None,position_type=None ,target=0):
 
     connector.connect()
     smart_api = connector.smart_api
@@ -173,12 +182,14 @@ def main(connector, positions,position_type='ENTRY',target=0):
     manager = StrategyManager(smart_api)
     if position_type == 'ENTRY' :
         manager.take_entry_positions(positions)
-    if position_type == 'EXIT' :
+    elif position_type == 'EXIT' :
         manager.exit_positions(positions)
-    if position_type == 'TARGET' :
+    elif position_type == 'TARGET' :
         positions = manager.target_order(positions,target)
         if positions :
             manager.take_entry_positions(positions,'TARGET')
+    else:
+        return manager
 
 
 

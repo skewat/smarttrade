@@ -1,7 +1,8 @@
 from datetime import datetime
 
 #Add your login details 
-API_KEY = 'WfhXGr5z'
+#https://smartapi.angelbroking.com/apps  URL to get API key
+API_KEY = 'b3Jt20md'
 USERNAME = 'AAAE362329'
 PWD = '1697'
 TOKEN = "YDGLN23VQ7KBI4QEY6PR2OA7TE"

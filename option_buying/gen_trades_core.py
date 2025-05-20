@@ -203,9 +203,40 @@ def get_trend(file_path, timestamp = None) -> int:
         return latest_signal
     else:
         return 0
+
 # ========================================
 # TRADE MANAGEMENT
 # ========================================
+
+def modify_limit_orders_to_market(connector, tag_to_match = 'OPTION_BUY'):
+    try:
+        # 1. Get all open orders
+        order_api = place_order.main(connector)
+        orders = order_api.get_order_book()
+
+        for order in orders:
+            # 2. Check for tag and order type
+            if (order.get("order_tag") == tag_to_match and
+                order.get("orderstatus") == "open" and
+                order.get("ordertype") == "LIMIT"):
+
+                # 3. Modify order to market
+                modified_order = smart_api.modifyOrder(
+                    orderid=order["orderid"],
+                    variety=order["variety"],           # e.g. 'NORMAL'
+                    tradingsymbol=order["tradingsymbol"],
+                    symboltoken=order["symboltoken"],
+                    transactiontype=order["transactiontype"],  # 'BUY' or 'SELL'
+                    exchange=order["exchange"],         # e.g. 'NSE'
+                    ordertype="MARKET",
+                    producttype=order["producttype"],   # e.g. 'INTRADAY'
+                    duration=order["duration"],         # e.g. 'DAY'
+                    quantity=order["quantity"]
+                )
+                logger.info(f"Modified Order ID {order['orderid']} to MARKET")
+
+    except Exception as e:
+        print(f"Error: {e}")
 
 def is_there_existing_trade():
     """Check if there is an active open trade."""
@@ -331,6 +362,7 @@ def process(connector, file_path, tick_time = None):
             positions = process_option_buy_entry(connector, trade)
 
         if config.LIVE:
+            modify_limit_orders_to_market(connector, 'OPTION_BUY')
             place_order.main(connector, positions, 'ENTRY')
             time.sleep(2) # give for prder to reflect
             positions = place_order.main(connector, positions, 'TARGET', 1.5)
