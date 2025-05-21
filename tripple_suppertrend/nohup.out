@@ -1,0 +1,12 @@
+[I 250429 09:28:42 smartConnect:124] in pool
+
+
+
+
+Loading data from existing file: daily_data_2025-04-29.csv
+    datetime     open      high       low     close
+0 2025-04-30  24373.3  24456.85  24370.95  24443.05
+Empty DataFrame
+Columns: [datetime, open, high, low, close]
+Index: []
+OHLC data unavailable.

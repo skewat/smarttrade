@@ -9,7 +9,7 @@ import time
 import pandas as pd
 from logzero import logger
 import signal
-
+import supertrend
 # Project Imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.abspath(os.path.join(current_dir, ".."))
@@ -22,7 +22,6 @@ from common_utils import (
     place_order,
     symboltoken,
     opt_position,
-    supertrend,
     sma,
     angelone,
     smartapi_wrapper,
@@ -151,6 +150,8 @@ def get_trend(file_path, timestamp = None) -> int:
         logger.error(f"Error reading file: {e}")
         return 0
 
+    return df.iloc[-1]['entry_flag'],df.iloc[-1]['exit_flag']
+
     if 'signals' not in df.columns:
         logger.warning(f"signal not in column")
         return 0
@@ -185,28 +186,58 @@ def get_trend(file_path, timestamp = None) -> int:
             return 0
         prev_signal = df.iloc[-2]['signals']
         latest_signal = df.iloc[-1]['signals']
+    return df.iloc[-1]['entry_flag'],df.iloc[-1]['exit_flag']
 
-    # Validate and compare
-    if pd.isna(prev_signal) or pd.isna(latest_signal):
-        logger.warning(f"Both signals are needed to compare")
-        return 0
 
-    try:
-        prev_signal = int(prev_signal)
-        latest_signal = int(latest_signal)
-    except ValueError:
-        logger.warning(f"Value error: {e}")
-        return 0
 
-    if prev_signal != latest_signal and latest_signal in [1, -1] and prev_signal in [1, -1]:
-        logger.info(f"{timestamp}  Trend {latest_signal} prev {prev_signal} latest {latest_signal}")
-        return latest_signal
-    else:
-        return 0
+#    # Validate and compare
+#    if pd.isna(prev_signal) or pd.isna(latest_signal):
+#        logger.warning(f"Both signals are needed to compare")
+#        return 0
+#
+#    try:
+#        prev_signal = int(prev_signal)
+#        latest_signal = int(latest_signal)
+#    except ValueError:
+#        logger.warning(f"Value error: {e}")
+#        return 0
+#
+#    if prev_signal != latest_signal and latest_signal in [1, -1] and prev_signal in [1, -1]:
+#        logger.info(f"{timestamp}  Trend {latest_signal} prev {prev_signal} latest {latest_signal}")
+#        return latest_signal
+#    else:
+#        return 0
 
 # ========================================
 # TRADE MANAGEMENT
 # ========================================
+
+def convert_to_5min(df):
+
+    # Assuming you've already loaded the DataFrame (df)
+    # Example: df = pd.read_csv("your_file.csv")
+    
+    # Step 1: Convert 'datetime' column to datetime type
+    df['datetime'] = pd.to_datetime(df['datetime'])
+    
+    # Step 2: Set 'datetime' as index
+    df.set_index('datetime', inplace=True)
+    
+    # Step 3: Resample to 5-minute OHLC
+    df_5min = df.resample('5T').agg({
+        'open': 'first',
+        'high': 'max',
+        'low': 'min',
+        'close': 'last'
+    })
+    
+    # Step 4: Drop incomplete candles if any
+    df_5min.dropna(inplace=True)
+    
+    # Step 5: Reset index (optional)
+    df_5min.reset_index(inplace=True)
+    
+    return  df_5min
 
 def modify_limit_orders_to_market(connector, tag_to_match = 'OPTION_BUY'):
     try:
@@ -238,6 +269,13 @@ def modify_limit_orders_to_market(connector, tag_to_match = 'OPTION_BUY'):
     except Exception as e:
         print(f"Error: {e}")
 
+def force_exit_positions(connector):
+    if is_there_existing_trade():
+        active_positions = get_active_positions()
+        exit_positions = process_option_buy_exit(connector, active_positions)
+        place_order.main(connector, exit_positions, 'EXIT')
+        logger.info('Exited by force.....')
+
 def is_there_existing_trade():
     """Check if there is an active open trade."""
     return os.path.exists(config.ACTIVE_TRADES_CSV) and not pd.read_csv(config.ACTIVE_TRADES_CSV).empty
@@ -249,14 +287,15 @@ def get_active_positions():
 
 def new_trade(file_path, spot_ltp,timestamp=None):
     """Create a new trade idea based on indicator trend."""
-    trend = get_trend(file_path,timestamp)
+    entry_trend,exit_trend  = get_trend(file_path,timestamp)
+
     trade = None
-    
-    if trend not in [1, -1]:
-        logger.info(f"No decisive trend. {trend}")
+    trend = entry_trend 
+    if trend not in ['ENTRY_BULLISH','ENTRY_BEARISH']:
+        logger.info(f"No decisive trend.... ")
         return None
 
-    option_type = "CE" if trend == 1 else "PE"
+    option_type = "CE" if trend == 'ENTRY_BULLISH' else "PE"
     year = datetime.now().year
     option_expiries = expiries_of_year.main(year)
 
@@ -316,44 +355,39 @@ def get_ltp_from_file(file_path,timestamp):
 
     return closest_row['close']
 
-def force_exit_positions(connector):
-    if is_there_existing_trade():
-        active_positions = get_active_positions()
-        exit_positions = process_option_buy_exit(connector, active_positions)
-        place_order.main(connector, exit_positions, 'EXIT')
-        logger.info('Exited by force.....')
 
 def process(connector, file_path, tick_time = None):
     """Main decision logic: Entry or Exit based on trend."""
     global simulate_timestamp
     simulate_timestamp = tick_time
-
     if config.SIMULATE :
         spot_ltp = get_ltp_from_file(file_path,tick_time)
     else :
         spot_ltp = get_ltp(connector, '99926000', 'NIFTY', 'NSE', tick_time)
     if is_there_existing_trade():
         active_positions = get_active_positions()
-        trend_now = get_trend(file_path, tick_time)
+        entry_trend,exit_trend = get_trend(file_path, tick_time)
+        trend_now = exit_trend
+
         df = pd.read_csv(config.ACTIVE_TRADES_CSV)
         opt_type = df['opt_type'].iloc[0]
         expiry = datetime.strptime(df['expiry'].iloc[0], "%d%b%y").date()
         today = datetime.today().date()
         current_time = datetime.now().time()
 
-        if expiry == today and current_time >= time(15, 10):
+        if expiry == today and current_time >= time(14, 50):
             exit_positions = process_option_buy_exit(connector, active_positions)
             if config.LIVE:
                 place_order.main(connector, exit_positions, 'EXIT')
             logger.info('Exited on expiry.')
             return
-        if trend_now == 0 :
+        if not trend_now == 'EXIT' :
             logger.info(f"{tick_time} Trend unchanged, Trend {trend_now}.")
             return
 
-        if (opt_type == 'CE' and trend_now == 1) or (opt_type == 'PE' and trend_now == -1):
-            logger.info(f"{tick_time} Trend unchanged. Option_type {opt_type}, Trend {trend_now}")
-            return
+        #if (opt_type == 'CE' and trend_now == 1) or (opt_type == 'PE' and trend_now == -1):
+        #    logger.info(f"{tick_time} Trend unchanged. Option_type {opt_type}, Trend {trend_now}")
+        #    return
 
         exit_positions = process_option_buy_exit(connector, active_positions)
         if config.LIVE:
@@ -368,11 +402,10 @@ def process(connector, file_path, tick_time = None):
             positions = process_option_buy_entry(connector, trade)
 
         if config.LIVE:
-            modify_limit_orders_to_market(connector, 'OPTION_BUY')
+            #modify_limit_orders_to_market(connector, 'OPTION_BUY')
             place_order.main(connector, positions, 'ENTRY')
-            time.sleep(2) # give for prder to reflect
-            positions = place_order.main(connector, positions, 'TARGET', 1.5)
-            #place_order.main(connector, positions, 'ENTRY', 'TARGET')
+            #time.sleep(2) # give for prder to reflect
+            #positions = place_order.main(connector, positions, 'TARGET', 1.5)
 
 
         logger.info('Entered new position.')

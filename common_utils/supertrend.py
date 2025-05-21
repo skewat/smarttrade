@@ -60,7 +60,7 @@ def generate_signals(df):
 
 # Get SuperTrend and attach supertrend signals to given dataframe and return
 def get_supertrend(data):
-    volatility = 3
+    volatility = 3.5
 
     data.columns = data.columns.str.lower()
     # Apply supertrend formula
