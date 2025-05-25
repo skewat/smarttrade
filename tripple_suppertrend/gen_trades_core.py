@@ -27,7 +27,7 @@ from common_utils import (
     smartapi_wrapper,
 )
 
-strategy_name = "OPTION_BUY"
+STRATEGY_TAG = "SUPER_TREND"
 
 # ========================================
 # UTILITY FUNCTIONS
@@ -86,7 +86,7 @@ def process_option_buy_entry(connector, trade_info, lots=1):
     position.set('order_type', 'BUY')
     position.set('price', get_ltp(connector, trade_info['atm_token'], trade_info['atm_symbol'], 'NFO'))
     position.set('time_stamp', datetime.now().strftime("%d-%m-%Y:%H:%M:%S"))
-    position.set('strategy_name',strategy_name)
+    position.set('strategy_tag',STRATEGY_TAG)
 
     write_positions_to_csv([position], config.ACTIVE_TRADES_CSV, 'w')
     write_positions_to_csv([position], config.ARCHIVE_TRADES_CSV, 'a')
@@ -101,7 +101,7 @@ def process_option_buy_exit(connector, positions):
         position.set('price', get_ltp(connector, position.get('symbol_token'), position.get('symbol'), 'NFO'))
         position.set('position_type', 'EXIT')
         position.set('time_stamp', datetime.now())
-        position.set('strategy_name',strategy_name)
+        position.set('strategy_tag',STRATEGY_TAG)
         exit_positions.append(position)
 
     write_positions_to_csv(exit_positions, config.ARCHIVE_TRADES_CSV, 'a')
@@ -239,7 +239,7 @@ def convert_to_5min(df):
     
     return  df_5min
 
-def modify_limit_orders_to_market(connector, tag_to_match = 'OPTION_BUY'):
+def modify_limit_orders_to_market(connector, tag_to_match = STRATEGY_TAG):
     try:
         # 1. Get all open orders
         order_api = place_order.main(connector)
@@ -288,7 +288,6 @@ def get_active_positions():
 def new_trade(file_path, spot_ltp,timestamp=None):
     """Create a new trade idea based on indicator trend."""
     entry_trend,exit_trend  = get_trend(file_path,timestamp)
-
     trade = None
     trend = entry_trend 
     if trend not in ['ENTRY_BULLISH','ENTRY_BEARISH']:
@@ -299,8 +298,7 @@ def new_trade(file_path, spot_ltp,timestamp=None):
     year = datetime.now().year
     option_expiries = expiries_of_year.main(year)
 
-    if config.OPTION_BUYING:
-        trade = option_buy_strategy(option_expiries, spot_ltp, option_type)
+    trade = option_buy_strategy(option_expiries, spot_ltp, option_type)
 
     if trade:
         atm_t, otm_t, atm_s, otm_s = symboltoken.get_symbol_token(
@@ -360,6 +358,7 @@ def process(connector, file_path, tick_time = None):
     """Main decision logic: Entry or Exit based on trend."""
     global simulate_timestamp
     simulate_timestamp = tick_time
+    place_order_obj = place_order.main(connector)
     if config.SIMULATE :
         spot_ltp = get_ltp_from_file(file_path,tick_time)
     else :
@@ -398,14 +397,24 @@ def process(connector, file_path, tick_time = None):
         trade = new_trade(file_path, spot_ltp,tick_time)
         if not trade:
             return
-        if config.OPTION_BUYING:
-            positions = process_option_buy_entry(connector, trade)
+        positions = process_option_buy_entry(connector, trade)
 
         if config.LIVE:
-            #modify_limit_orders_to_market(connector, 'OPTION_BUY')
+            # If there is pending target order , make sure to make it market so it gets closed 
+            #modify_limit_orders_to_market(connector, STRATEGY_TAG)
+
+            # Clear open position and pending order  with TAG used in this stragety
+            place_order_obj.clear_existing_positions(connector, STRATEGY_TAG)
+
+            # Take Entry order  - MARKET order type
             place_order.main(connector, positions, 'ENTRY')
-            #time.sleep(2) # give for prder to reflect
-            #positions = place_order.main(connector, positions, 'TARGET', 1.5)
+            time.sleep(2) # give for prder to reflect
+
+            # Place target order
+            #positions = place_order.main(connector, positions, 'TARGET', 30)
+
+            # Place SL order
+            positions = place_order.main(connector, positions, 'STOPLOSS', 20)
 
 
         logger.info('Entered new position.')
