@@ -26,7 +26,7 @@ def combine_todays_ohlc(existing_df, minute_csv):
     Returns:
         pd.DataFrame: Combined DataFrame with updated OHLC data.
     """
-    if not os.path.exists(minute_csv):
+    if not os.path.exists(minute_csv) or os.stat(minute_csv).st_size == 0:
         return existing_df
     minute_df = pd.read_csv(minute_csv, parse_dates=['minute'])
     minute_df.rename(columns={'minute': 'datetime'}, inplace=True)
@@ -195,9 +195,9 @@ def main(smartApi):
     today = datetime.today().date()
     data_file = f"/home/ckewat/options_strategy/smarttrade/data/ohlc_data/t_nifty50_ohlc_{today}.csv"
     df = pd.DataFrame()
-    if not os.path.exists(data_file):
-        print(f"Todays OHLC data file {data_file} does not exist")
-        return df
+#    if not os.path.exists(data_file):
+#        print(f"Todays OHLC data file {data_file} does not exist")
+#        return df
     df = fetch_ohlc(smartApi).reset_index()
     df.columns = df.columns.str.lower()
     df['datetime'] = pd.to_datetime(df['datetime']).dt.tz_localize(None)

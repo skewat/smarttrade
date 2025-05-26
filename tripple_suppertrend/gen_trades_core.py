@@ -421,5 +421,5 @@ def process(connector, file_path, tick_time = None):
 def is_within_time_range():
     """Check if current time is within trading hours."""
     now = datetime.now()
-    return now.replace(hour=9, minute=16) <= now <= now.replace(hour=15, minute=25)
+    return now.replace(hour=9, minute=15) <= now <= now.replace(hour=15, minute=15)
 

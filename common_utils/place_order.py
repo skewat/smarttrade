@@ -150,14 +150,19 @@ class StrategyManager:
             }
         if position_type == "STOPLOSS":
             logger.info("Placing STOPLOSS order")
+            if  position.get("order_type") == "BUY" : 
+                price =  int(position.get("price")) + 1
+            if  position.get("order_type") == "SELL" : 
+                price =  int(position.get("price")) - 1
+
             order = {
                 "variety": "STOPLOSS",
                 "tradingsymbol": position.get("symbol"),
                 "symboltoken": position.get("symbol_token"),
                 "transactiontype": position.get("order_type"),
                 "exchange": "NFO",
-                "ordertype": "STOPLOSS_MARKET",
-                "price": 0,
+                "ordertype": "STOPLOSS_LIMIT",
+                "price": price,
                 "producttype": "CARRYFORWARD",
                 "duration": "DAY",
                 "triggerprice": position.get("price"),

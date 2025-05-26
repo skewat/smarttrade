@@ -41,7 +41,7 @@ def main():
                 core.process(connector, supertrend_file)
                 trading_today = True
             else :
-                start = "2025-05-02 09:29:00"
+                start = "2025-05-02 09:15:00"
                 end = "2025-05-02 15:30:00"
                 minute_range = pd.date_range(start=start, end=end, freq='T')
                 for timestamp in minute_range:
