@@ -46,7 +46,10 @@ class StrategyManager:
         for data in open_positions['data'] :
             if position[0].get('symbol') == data['tradingsymbol'] and int(data['netqty']) >= int(position[0].get('quantity')):
             #if 1:
-                logger.info('There is valid position to set target')
+                if stop_loss :
+                    logger.info('There is valid open position to set STOPLOSS')
+                else:
+                    logger.info('There is valid position to set TARGET')
                 if order_type == 'SELL':
                     position[0].set("order_type","BUY")
                     #t_price =  round(float(price)*(1 - percent),2)
@@ -70,10 +73,14 @@ class StrategyManager:
     def clear_existing_positions(self,connector, tag):
         ''' AT this point clear any pending order or open position with given tag '''
         all_orders = self.get_order_book()
+
         for position in all_orders['data'] :
-            #pprint.pprint(position)
-            #pprint.pprint(position['ordertag'])
-            print('-'*30,' TESTING ','_'*30)
+            if position['ordertag'] == 'SUPER_TREND' and position['status'] == 'open':
+                orderid = position["orderid"]
+                variety = position["variety"]
+                if variety == 'AMO':
+                    variety = 'NORMAL'
+                cancel_response = connector.smart_api.cancelOrder(position["orderid"], variety)
         return 
 
 
@@ -103,6 +110,8 @@ class StrategyManager:
     def _open_position(self, position):
         ''' This is to check if target exit order is still open '''
         open_positions = self.smart_api.position()
+        if not open_positions or not open_positions['data']:
+            return False
         for data in open_positions['data'] :
             if position.data['symbol'] == data['tradingsymbol'] and data['netqty'] >= position.data['quantity']:
                 logger.info('There is valid position to exit')
@@ -140,14 +149,14 @@ class StrategyManager:
                 "ordertag":  position.get("strategy_tag")
             }
         if position_type == "STOPLOSS":
-            logger.info("Placing stop loss target order")
+            logger.info("Placing STOPLOSS order")
             order = {
-                "variety": "NORMAL",
+                "variety": "STOPLOSS",
                 "tradingsymbol": position.get("symbol"),
                 "symboltoken": position.get("symbol_token"),
                 "transactiontype": position.get("order_type"),
                 "exchange": "NFO",
-                "ordertype": "STOPLOSS_LIMIT",
+                "ordertype": "STOPLOSS_MARKET",
                 "price": 0,
                 "producttype": "CARRYFORWARD",
                 "duration": "DAY",

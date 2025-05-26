@@ -367,7 +367,6 @@ def process(connector, file_path, tick_time = None):
         active_positions = get_active_positions()
         entry_trend,exit_trend = get_trend(file_path, tick_time)
         trend_now = exit_trend
-
         df = pd.read_csv(config.ACTIVE_TRADES_CSV)
         opt_type = df['opt_type'].iloc[0]
         expiry = datetime.strptime(df['expiry'].iloc[0], "%d%b%y").date()
