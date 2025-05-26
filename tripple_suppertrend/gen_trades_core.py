@@ -127,7 +127,7 @@ def option_buy_strategy(option_expiries, spot_ltp, option_type):
 def find_valid_expiry(expiries):
     """Pick the first expiry > 6 days from today."""
     dt = datetime.today()
-    expiry = next((datetime.strptime(e, "%d%b%y") for e in expiries if datetime.strptime(e, "%d%b%y") > dt + timedelta(days=6)), None)
+    expiry = next((datetime.strptime(e, "%d%b%y") for e in expiries if datetime.strptime(e, "%d%b%y") > dt + timedelta(days=2)), None)
     return expiry.strftime('%d%b%y').upper() if expiry else None
 
 def get_trend(file_path, timestamp = None) -> int:
