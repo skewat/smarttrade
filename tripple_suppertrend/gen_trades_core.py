@@ -150,8 +150,6 @@ def get_trend(file_path, timestamp = None) -> int:
         logger.error(f"Error reading file: {e}")
         return 0
 
-    return df.iloc[-1]['entry_flag'],df.iloc[-1]['exit_flag']
-
     if 'signals' not in df.columns:
         logger.warning(f"signal not in column")
         return 0
