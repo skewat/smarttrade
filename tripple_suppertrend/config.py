@@ -12,7 +12,7 @@ SIMULATE = False
 LOTSIZE = 75
 
 LIVE = True     # Only during office hours of market
-TESTING = True # It allows LIVE beyond office hours - test end to end flow ( order placements )
+TESTING = False# It allows LIVE beyond office hours - test end to end flow ( order placements )
 PAPER_TRADING = False # everything except real order is not placed 
 
 CSV_FILE = 'sma_supertrend_hourly_candle.csv'
