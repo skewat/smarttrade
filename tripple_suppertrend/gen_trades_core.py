@@ -149,62 +149,9 @@ def get_trend(file_path, timestamp = None) -> int:
     except Exception as e:
         logger.error(f"Error reading file: {e}")
         return 0
-
-    if 'signals' not in df.columns:
-        logger.warning(f"signal not in column")
-        return 0
-
-    if timestamp is not None:
-        if 'datetime' not in df.columns:
-            logger.warning(f"datetime not in column, check if it is Datetime ?")
-            return 0
-
-        df['datetime'] = pd.to_datetime(df['datetime'])
-        try:
-            target_time = pd.to_datetime(timestamp)
-        except Exception as e:
-            logger.warning(f"Invalid timestamp: {e}")
-            return 0
-
-        row_index = df.index[df['datetime'] == target_time].tolist()
-        if not row_index:
-            logger.warning(f"Row index empty")
-            return 0
-        idx = row_index[0]
-
-        if idx == 0:
-            logger.warning(f"No previous row to compare")
-            return 0  # No previous row to compare
-
-        prev_signal = df.iloc[idx - 1]['signals']
-        latest_signal = df.iloc[idx]['signals']
-    else:
-        if len(df) < 2:
-            logger.warning(f"Data Frame too small")
-            return 0
-        prev_signal = df.iloc[-2]['signals']
-        latest_signal = df.iloc[-1]['signals']
+    # Signals are tracked and entry/exit logic is in supertrend itself 
     return df.iloc[-1]['entry_flag'],df.iloc[-1]['exit_flag']
 
-
-
-#    # Validate and compare
-#    if pd.isna(prev_signal) or pd.isna(latest_signal):
-#        logger.warning(f"Both signals are needed to compare")
-#        return 0
-#
-#    try:
-#        prev_signal = int(prev_signal)
-#        latest_signal = int(latest_signal)
-#    except ValueError:
-#        logger.warning(f"Value error: {e}")
-#        return 0
-#
-#    if prev_signal != latest_signal and latest_signal in [1, -1] and prev_signal in [1, -1]:
-#        logger.info(f"{timestamp}  Trend {latest_signal} prev {prev_signal} latest {latest_signal}")
-#        return latest_signal
-#    else:
-#        return 0
 
 # ========================================
 # TRADE MANAGEMENT
@@ -371,7 +318,7 @@ def process(connector, file_path, tick_time = None):
         today = datetime.today().date()
         current_time = datetime.now().time()
 
-        if expiry == today and current_time >= time(14, 50):
+        if expiry == today and current_time >= time(13, 20):
             exit_positions = process_option_buy_exit(connector, active_positions)
             if config.LIVE:
                 place_order.main(connector, exit_positions, 'EXIT')
@@ -380,10 +327,6 @@ def process(connector, file_path, tick_time = None):
         if not trend_now == 'EXIT' :
             logger.info(f"{tick_time} Trend unchanged, Trend {trend_now}.")
             return
-
-        #if (opt_type == 'CE' and trend_now == 1) or (opt_type == 'PE' and trend_now == -1):
-        #    logger.info(f"{tick_time} Trend unchanged. Option_type {opt_type}, Trend {trend_now}")
-        #    return
 
         exit_positions = process_option_buy_exit(connector, active_positions)
         if config.LIVE:

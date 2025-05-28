@@ -74,6 +74,9 @@ class StrategyManager:
         ''' AT this point clear any pending order or open position with given tag '''
         all_orders = self.get_order_book()
 
+        if all_orders['data'] == None : 
+            logger.info("No order in orderbook ")
+            return 
         for position in all_orders['data'] :
             if position['ordertag'] == 'SUPER_TREND' and position['status'] == 'open':
                 orderid = position["orderid"]
