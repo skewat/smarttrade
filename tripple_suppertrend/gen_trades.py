@@ -38,7 +38,7 @@ def main():
                     sys.exit('OHLC data unavailable.')
                 ohlc_df = core.convert_to_5min(ohlc_df)
                 supertrend_file = core.supertrend.main(ohlc_df)
-                core.process(connector, supertrend_file)
+                #core.process(connector, supertrend_file)
                 trading_today = True
             else :
                 start = "2025-05-02 09:15:00"

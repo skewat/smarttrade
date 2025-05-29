@@ -82,6 +82,7 @@ def detect_entry_exit_signals_from_csv(df):
     #df = pd.read_csv(file_path)
 
     # Step 2: Identify 'signal_' columns
+    first_candle = False
     ok_for_entry  = True
     signal_cols = [col for col in df.columns if col.startswith('signals_')]
 
@@ -120,15 +121,27 @@ def detect_entry_exit_signals_from_csv(df):
             ok_for_entry  = True
 
         # FIrst candle at 9:15 AM 
+        first_candle = False
         if  dt.time() == first_candle_time :
-            first_candle = True
+            # Only in case of GAP up or GAP down by 30+ points 
+            #gap = ' '
+            if not idx == 0 :
+                atr_1, dtime_1,op,close = get_atr(df,idx-1)
+                if int(o) > int(close) + 30 :
+                    #gap = 'UP'
+                    first_candle = True
+                elif int(o) < int(close) - 30 :
+                    #gap = 'DOWN'
+                    first_candle = True
+
 
         if ( previous_state is None or first_candle )  and current_state is not None and ok_for_entry:
+
             if current_state == 1 and atr > 21 :
-                #print(dtime, 'ENTRY', atr,c)
+                #print(dtime, 'ENTRY_BULLISH', atr,c,previous_state,current_state)
                 entry_signals.append('ENTRY_BULLISH')
             elif  current_state == -1 and atr > 21:
-                #print(dtime, 'ENTRY', atr,c)
+                #print(dtime, 'ENTRY_BEARISH', atr,c,previous_state,current_state)
                 entry_signals.append('ENTRY_BEARISH')
             else:
                 entry_signals.append(None)
