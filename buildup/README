@@ -1,0 +1,12 @@
+This strategy is as following : 
+1. Get the stocks with future long build up or future short build up on previous day
+2. get the Resitance and support for standard Pivot
+3. Get 89 EMA  on 15 Minute candle 
+
+Trage condition A : 
+1. Check each of selected stock 
+2. If any of that having long buildup  and is crossing above 89 High EMA  and crossing above R1 take a Bull Put Spread position
+3. If any of that selected stock is having short buildup and is crossing below 89 Low EMA  and crossing Bewlow S1 take a Bull Put Spread position
+4. Exit on +5% OR at 3:15 PM or when Support or resistance is broken other side
+
+
