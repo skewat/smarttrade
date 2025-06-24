@@ -1,0 +1,172 @@
+Trading rules. 
+
+Conditions : 
+1. Take previoud day ATR and upper limit is
+     (a) Upper_Limit = Previous day close + ATR 
+     (b) Upper_Limit_80 = 80% of Upper_Limit
+     (c) Lower_Limit = Previous day close - ATR 
+     (d) Upper_Limit_80 = 80% of Lower_Limit
+2. on 15 Min candle create 3 period EMA  and 22 period EMA 
+3. Only Bull Put spread and Bear Call spread are supposed to be taken in this strategy 
+
+Action : 
+
+Entry conditions: 
+*** Only One open Trade at time ***
+
+First Trade entry :
+  C. When 9:15 AM candle closes above Upper_limit_80 wait for a candle to touch ATR line and a RED candle  to take Bear Call Spread
+  D. When 9:15 AM candle closes Below Lower_limit_80 wait for a candle to touch ATR line and a green candle to take a Bull Put spread call
+  E. When 9:15 candle open in between  Upper_limit_80 and lower_limit_80 take a Bull Put Spread when lower length EMA crosses higher leangth EMA upwards
+  F. When 9:15 candle open in between  Upper_limit_80 and lower_limit_80 take a Bear Call Spread when lower length EMA crosses higher leangth EMA downwards 
+
+Susequent Trade entry :
+  A. Bull Put Spread when lower length EMA crosses higher leangth EMA upwards, if there is reverse direction call close it and take new trade
+  B, Bear Call Spread when lower length EMA crosses higher leangth EMA downwards , if there is reverse direction call close it and take a new call
+  C. Bear Call spread Entry when Upper_Limit is touched , if there is no same direction call, if there is same direction call continue , if different direction call exit and take new call 
+  D. Pull Put Spread entry when Lower_Limit is touched, if there is no same direction call, if there is same direction call continue , if different direction call exit and take new call
+
+Exit conditions: 
+A. If time is 3:15 PM or later, close all active positions 
+b. If 3% target is acheived exit positions
+c. Exit on reversal of EMA signal
+----
+🔧 Input Data Requirements
+Previous Day:
+
+Close Price
+
+ATR (Average True Range)
+
+Intraday:
+
+15-minute candles (OHLC)
+
+Real-time EMA(3) and EMA(22)
+
+🔁 Definitions
+Let:
+
+prev_close = previous day's close
+
+prev_atr = previous day's ATR
+
+📈 Calculated Levels:
+python
+Copy
+Edit
+Upper_Limit = prev_close + prev_atr
+Upper_Limit_80 = prev_close + 0.8 * prev_atr
+Lower_Limit = prev_close - prev_atr
+Lower_Limit_80 = prev_close - 0.8 * prev_atr
+🔍 Strategy Conditions
+✅ Indicators
+3-period EMA and 22-period EMA on 15-minute candles.
+
+⚠️ Rule: Only ONE open trade at any given time.
+🟢 Entry Conditions
+1️⃣ First Trade of the Day
+Based on 9:15 AM candle (i.e., the first completed 15-min candle)
+
+Condition	Action
+Close > Upper_Limit_80	Wait for price to touch Upper_Limit AND see a Red Candle → Bear Call Spread
+Close < Lower_Limit_80	Wait for price to touch Lower_Limit AND see a Green Candle → Bull Put Spread
+Close between Upper_Limit_80 and Lower_Limit_80	If EMA(3) crosses above EMA(22) → Bull Put Spread
+Close between Upper_Limit_80 and Lower_Limit_80	If EMA(3) crosses below EMA(22) → Bear Call Spread
+
+🔁 Subsequent Trade Entries
+(Only after the first trade is exited)
+
+Signal	Action
+EMA(3) crosses above EMA(22)	Close Bear Call if open → Open Bull Put
+EMA(3) crosses below EMA(22)	Close Bull Put if open → Open Bear Call
+Price touches Upper_Limit	If no Bear Call → Open Bear Call
+If Bull Put open → Exit & open Bear Call
+Price touches Lower_Limit	If no Bull Put → Open Bull Put
+If Bear Call open → Exit & open Bull Put
+
+🔚 Exit Conditions
+Condition	Action
+Time is 3:15 PM or later	Close all open trades
+Net position achieves +3% profit	Close all positions
+EMA crossover reverses	Close current position
+
+🧠 Strategy Design & Coding Plan
+1. Data Modules
+python
+Copy
+Edit
+def get_previous_day_data(df):  # from daily or 15min data
+    return prev_close, prev_atr
+2. Candle Feed & EMA Calculations
+python
+Copy
+Edit
+def calculate_ema(df, period):  # EMA(3), EMA(22)
+    return df['EMA']
+3. Level Computations
+python
+Copy
+Edit
+def compute_levels(prev_close, prev_atr):
+    return upper_limit, upper_limit_80, lower_limit, lower_limit_80
+4. Signal Evaluation Engine
+python
+Copy
+Edit
+def evaluate_first_trade(candle_915, levels, df):
+    # Wait conditions: price touch, candle color, EMA cross
+    return signal, trade_type
+python
+Copy
+Edit
+def evaluate_subsequent_trade(df, current_trade, levels):
+    # EMA reversals, level touches
+    return signal, trade_type
+5. Trade Execution
+python
+Copy
+Edit
+def execute_trade(trade_type, strike_price, expiry):
+    # Place options spread
+    return position_id
+python
+Copy
+Edit
+def close_trade(position_id):
+    # Exit current trade
+6. Risk Management
+python
+Copy
+Edit
+def check_exit_conditions(current_time, pnl, ema_signal):
+    return should_exit
+🔁 Scheduler & Control Flow
+python
+Copy
+Edit
+while market_open:
+    fetch latest 15-min candle
+    update EMA(3), EMA(22)
+
+    if no active trade:
+        if time == 9:30:
+            check 9:15 candle → first trade
+        else:
+            check for signal → open new trade
+    else:
+        check exit conditions → if met, close trade
+        else check reversal or touch-based entry for switch
+✅ Output & Logging
+Store logs of:
+
+Signal type and time
+
+Entry/Exit details
+
+PnL summary
+
+EMA values
+
+Candle-based decisions
+
