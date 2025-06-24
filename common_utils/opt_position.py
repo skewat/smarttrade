@@ -64,7 +64,7 @@ class OptionPosition:
                      'price',
                      'position_type',
                      'time_stamp',
-                     'strategy_name',
+                     'strategy_tag',
                     ]
 
     def get(self, key):

@@ -21,7 +21,7 @@ def main():
     connector = angelone.AngelOneConnector()
     connector.connect()
     smart_api = connector.smart_api
-    trading_today = True
+    trading_today = False
     if not config.SIMULATE :
         signal.signal(signal.SIGINT, core.signal_handler)
         if not smart_api:
@@ -32,24 +32,23 @@ def main():
     while True:
         now = datetime.now()
         if core.is_within_time_range() or config.TESTING:
-            
             if not config.SIMULATE:
                 ohlc_df = core.till_date_ohlc_data.main(smart_api)
                 if ohlc_df.empty:
                     sys.exit('OHLC data unavailable.')
+                ohlc_df = core.convert_to_5min(ohlc_df)
                 supertrend_file = core.supertrend.main(ohlc_df)
-                sma_file = core.sma.main(supertrend_file)
-                core.process(connector, sma_file)
+                #core.process(connector, supertrend_file)
                 trading_today = True
             else :
-                start = "2025-05-02 09:29:00"
+                start = "2025-05-02 09:15:00"
                 end = "2025-05-02 15:30:00"
                 minute_range = pd.date_range(start=start, end=end, freq='T')
                 for timestamp in minute_range:
                     core.process(connector, config.CSV_FILE,timestamp)
                 return 
         else:
-            if trading_today : 
+            if trading_today :
                 # Exit all position if moving from office hour to non office hour
                 core.force_exit_positions(connector)
                 logger.info(f"Outside trading hours: {datetime.now().strftime('%H:%M:%S')}")

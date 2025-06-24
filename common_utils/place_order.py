@@ -20,17 +20,17 @@ class StrategyManager:
         self.smart_api = smart_api
         self.wrapper_api = smartapi_wrapper.SmartAPIWrapper(smart_api)
 
-    def take_entry_positions(self, positions,limit=None):
+    def take_entry_positions(self, positions,position_type=None):
         logger.info("Event: Taking Entry")
 
         # Sort positions so that BUY orders come before SELL
         positions = sorted(positions, key=lambda x: x.data["order_type"] != "BUY")
 
         for position in positions:
-            order = self._place_order(position,limit)
+            order = self._place_order(position,position_type)
 
     # input is one position at a time 
-    def target_order(self,position, target_percent):
+    def target_order(self,position, target_point, stop_loss = False):
         open_positions = self.smart_api.position()
         order_book = self.smart_api.orderBook()
         target_tradingsymbol = position[0].get('symbol')
@@ -42,19 +42,50 @@ class StrategyManager:
             return
 
         price = data['averageprice']
+        #percent = 1*float(target_percent)/100
         for data in open_positions['data'] :
             if position[0].get('symbol') == data['tradingsymbol'] and int(data['netqty']) >= int(position[0].get('quantity')):
             #if 1:
-                logger.info('There is valid position to set target')
+                if stop_loss :
+                    logger.info('There is valid open position to set STOPLOSS')
+                else:
+                    logger.info('There is valid position to set TARGET')
                 if order_type == 'SELL':
                     position[0].set("order_type","BUY")
-                    percent = 1*float(target_percent)/100
-                    t_price =  round(float(price)*(1 - percent),2)
+                    #t_price =  round(float(price)*(1 - percent),2)
+                    #t_price = round(round(t_price/ 0.05) * 0.05, 2) # round to 0.05
+                    if stop_loss :
+                        t_price = price + target_point
+                    else:
+                        t_price = price - target_point
+
                 elif order_type == 'BUY':
                     position[0].set("order_type","SELL")
-                    t_price =  round(float(price)*(1 + percent),2)
+                    #t_price =  round(float(price)*(1 + percent),2)
+                    #t_price = round(round(t_price/ 0.05) * 0.05, 2) # round to 0.05
+                    if stop_loss :
+                        t_price = price - target_point
+                    else:
+                        t_price = price + target_point
                 position[0].set("price", t_price)
                 return position
+
+    def clear_existing_positions(self,connector, tag):
+        ''' AT this point clear any pending order or open position with given tag '''
+        all_orders = self.get_order_book()
+
+        if all_orders['data'] == None : 
+            logger.info("No order in orderbook ")
+            return 
+        for position in all_orders['data'] :
+            if position['ordertag'] == 'SUPER_TREND' and position['status'] == 'open':
+                orderid = position["orderid"]
+                variety = position["variety"]
+                if variety == 'AMO':
+                    variety = 'NORMAL'
+                cancel_response = connector.smart_api.cancelOrder(position["orderid"], variety)
+        return 
+
 
     def get_latest_completed_order(self,orderbook, target_tradingsymbol, order_type):
         """
@@ -80,8 +111,10 @@ class StrategyManager:
         return sorted_orders[0]
 
     def _open_position(self, position):
-        ''' This is to check if exit order is still open '''
+        ''' This is to check if target exit order is still open '''
         open_positions = self.smart_api.position()
+        if not open_positions or not open_positions['data']:
+            return False
         for data in open_positions['data'] :
             if position.data['symbol'] == data['tradingsymbol'] and data['netqty'] >= position.data['quantity']:
                 logger.info('There is valid position to exit')
@@ -100,10 +133,10 @@ class StrategyManager:
             else:
                 logger.info('There is no valid position to exit')
 
-    def _place_order(self, position, limit=None):
+    def _place_order(self, position, position_type):
         timeout = 5
         poll_interval = 1
-        if limit :
+        if position_type == "TARGET":
             logger.info("Placing limit target order")
             order = {
                 "variety": "NORMAL",
@@ -116,7 +149,28 @@ class StrategyManager:
                 "producttype": "CARRYFORWARD",
                 "duration": "DAY",
                 "quantity": position.get("quantity"),
-                "ordertag":  position.get("strategy_name")
+                "ordertag":  position.get("strategy_tag")
+            }
+        if position_type == "STOPLOSS":
+            logger.info("Placing STOPLOSS order")
+            if  position.get("order_type") == "BUY" : 
+                price =  int(position.get("price")) + 1
+            if  position.get("order_type") == "SELL" : 
+                price =  int(position.get("price")) - 1
+
+            order = {
+                "variety": "STOPLOSS",
+                "tradingsymbol": position.get("symbol"),
+                "symboltoken": position.get("symbol_token"),
+                "transactiontype": position.get("order_type"),
+                "exchange": "NFO",
+                "ordertype": "STOPLOSS_LIMIT",
+                "price": price,
+                "producttype": "CARRYFORWARD",
+                "duration": "DAY",
+                "triggerprice": position.get("price"),
+                "quantity": position.get("quantity"),
+                "ordertag":  position.get("strategy_tag")
             }
         else :
             order = {
@@ -129,7 +183,7 @@ class StrategyManager:
                 "producttype": "CARRYFORWARD",
                 "duration": "DAY",
                 "quantity": position.get("quantity"),
-                "ordertag": position.get("strategy_name")
+                "ordertag": position.get("strategy_tag")
             }
 
         try:
@@ -157,6 +211,10 @@ class StrategyManager:
             logger.error(f"Order placement failed: {e}")
             return None
 
+    def get_order_book(self):
+        order_book = self.smart_api.orderBook()
+        return order_book
+
     def _get_order_status(self, order_id):
         order_book = self.smart_api.orderBook()
         if order_book.get("status"):
@@ -165,7 +223,7 @@ class StrategyManager:
                     return order["status"]
         return "Order not found"
 
-def main(connector, positions,position_type='ENTRY',target=0):
+def main(connector, positions = None,position_type=None ,target=0):
 
     connector.connect()
     smart_api = connector.smart_api
@@ -173,12 +231,19 @@ def main(connector, positions,position_type='ENTRY',target=0):
     manager = StrategyManager(smart_api)
     if position_type == 'ENTRY' :
         manager.take_entry_positions(positions)
-    if position_type == 'EXIT' :
+    elif position_type == 'EXIT' :
         manager.exit_positions(positions)
-    if position_type == 'TARGET' :
+    elif position_type == 'TARGET' :
         positions = manager.target_order(positions,target)
         if positions :
             manager.take_entry_positions(positions,'TARGET')
+    elif position_type == 'STOPLOSS' :
+        sl = True
+        positions = manager.target_order(positions,target,sl)
+        if positions :
+            manager.take_entry_positions(positions,'STOPLOSS')
+    else:
+        return manager
 
 
 
