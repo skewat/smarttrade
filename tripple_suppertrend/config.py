@@ -8,14 +8,14 @@ PWD = '1697'
 TOKEN = "YDGLN23VQ7KBI4QEY6PR2OA7TE"
 
 # Sellect as apropriate 
-SIMULATE = False
+SIMULATE = True
 LOTSIZE = 75
 
-LIVE = True     # Only during office hours of market
+LIVE = True    # Only during office hours of market
 TESTING = True  # It allows LIVE beyond office hours - test end to end flow ( order placements )
 PAPER_TRADING = False # everything except real order is not placed 
 
-CSV_FILE = 'sma_supertrend_hourly_candle.csv'
+CSV_FILE = "supertrend_hourly_candle.csv"
 
 today = datetime.today().date()
 ACTIVE_TRADES_CSV = f"active_buying_trades_{today}.csv"

@@ -9,12 +9,14 @@ import time
 import pandas as pd
 from logzero import logger
 import signal
-import supertrend
+
 # Project Imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.abspath(os.path.join(current_dir, ".."))
 sys.path.append(base_path)
 
+import supertrend
+import pnl_calculator
 import config
 from common_utils import (
     till_date_ohlc_data,
@@ -34,6 +36,7 @@ STRATEGY_TAG = "SUPER_TREND"
 # ========================================
 
 simulate_timestamp = None
+data_frame = None
 
 def signal_handler(sig, frame):
     """Handle SIGINT (Ctrl+C) to exit gracefully."""
@@ -60,7 +63,7 @@ def get_ltp(connector, token='99926000', symbol='NIFTY', exchange='NSE', timesta
     """Fetch latest traded price (LTP) from API."""
     global simulate_timestamp
     if config.SIMULATE :
-        return get_ltp_from_file(config.CSV_FILE, simulate_timestamp)
+        return get_ltp_from_file(simulate_timestamp)
     else:
         smart_api = connector.smart_api
         wrapper_api = smartapi_wrapper.SmartAPIWrapper(smart_api)
@@ -130,7 +133,7 @@ def find_valid_expiry(expiries):
     expiry = next((datetime.strptime(e, "%d%b%y") for e in expiries if datetime.strptime(e, "%d%b%y") > dt + timedelta(days=2)), None)
     return expiry.strftime('%d%b%y').upper() if expiry else None
 
-def get_trend(file_path, timestamp = None) -> int:
+def get_trend(df, timestamp = None) -> int:
     """
     Check for a signal change in the indicator file.
 
@@ -144,13 +147,31 @@ def get_trend(file_path, timestamp = None) -> int:
     Returns:
         int: Latest signal (1 or -1) if there's a trend change, else 0.
     """
-    try:
-        df = pd.read_csv(file_path)
-    except Exception as e:
-        logger.error(f"Error reading file: {e}")
-        return 0
+    #try:
+    #    df = pd.read_csv(file_path)
+    #except Exception as e:
+    #    logger.error(f"Error reading file: {e}")
+    #    return 0
     # Signals are tracked and entry/exit logic is in supertrend itself 
     return df.iloc[-1]['entry_flag'],df.iloc[-1]['exit_flag']
+    if config.SIMULATE :
+
+        if df.index.name != 'datetime':
+            df = df.reset_index()
+        df['datetime'] = pd.to_datetime(df['datetime'])
+        target_dt = pd.to_datetime(timestamp)
+        
+        # Filter for matching datetime
+        matched_row = df[df['datetime'] == target_dt]
+        
+        if not matched_row.empty:
+            entry_flag = matched_row.iloc[0].get('entry_flag', None)
+            exit_flag = matched_row.iloc[0].get('exit_flag', None)
+            return entry_flag, exit_flag
+        else:
+            return None, None
+    else:
+        return df.iloc[-1]['entry_flag'],df.iloc[-1]['exit_flag']
 
 
 # ========================================
@@ -236,7 +257,7 @@ def new_trade(file_path, spot_ltp,timestamp=None):
     trade = None
     trend = entry_trend 
     if trend not in ['ENTRY_BULLISH','ENTRY_BEARISH']:
-        logger.info(f"No decisive trend.... ")
+        #logger.info(f"No decisive trend.... {trend}")
         return None
 
     option_type = "CE" if trend == 'ENTRY_BULLISH' else "PE"
@@ -260,7 +281,7 @@ def new_trade(file_path, spot_ltp,timestamp=None):
         })
     return trade
 
-def get_ltp_from_file(file_path,timestamp):
+def get_ltp_from_file(timestamp):
     """
     Return the 'close' price from the row with the timestamp closest to the given one.
 
@@ -271,46 +292,50 @@ def get_ltp_from_file(file_path,timestamp):
     Returns:
         float: The close price (LTP) closest to the given timestamp. Returns None if not found.
     """
-    try:
-        df = pd.read_csv(file_path)
-    except Exception as e:
-        logger.error(f"Error reading file: {e}")
-        return None
+    #try:
+    #    df = pd.read_csv(file_path)
+    #except Exception as e:
+    #    logger.error(f"Error reading file: {e}")
+    #    return None
 
+    df  = data_frame
     if 'datetime' not in df.columns or 'close' not in df.columns:
         logger.error("Missing required columns 'timestamp' or 'close'")
         return None
 
+    return (df.iloc[-1]['close'])
     # Convert to datetime
-    try:
-        df['timestamp'] = pd.to_datetime(df['datetime'])
-        target_time = pd.to_datetime(timestamp)
-    except Exception as e:
-        logger.error(f"Timestamp parsing error: {e}")
-        return None
+    #try:
+    #    df['timestamp'] = pd.to_datetime(df['datetime'])
+    #    target_time = pd.to_datetime(timestamp)
+    #except Exception as e:
+    #    logger.error(f"Timestamp parsing error: {e}")
+    #    return None
+#
+#    if df.empty:
+#        return None
+#
+#    # Find row with closest timestamp
+#    df['time_diff'] = (df['timestamp'] - target_time).abs()
+#    closest_row = df.loc[df['time_diff'].idxmin()]
+#
+#    return closest_row['close']
 
-    if df.empty:
-        return None
 
-    # Find row with closest timestamp
-    df['time_diff'] = (df['timestamp'] - target_time).abs()
-    closest_row = df.loc[df['time_diff'].idxmin()]
-
-    return closest_row['close']
-
-
-def process(connector, file_path, tick_time = None):
+def process(connector, df_data, tick_time = None):
     """Main decision logic: Entry or Exit based on trend."""
     global simulate_timestamp
+    global data_frame
+    data_frame = df_data
     simulate_timestamp = tick_time
     place_order_obj = place_order.main(connector)
     if config.SIMULATE :
-        spot_ltp = get_ltp_from_file(file_path,tick_time)
+        spot_ltp = get_ltp_from_file(tick_time)
     else :
         spot_ltp = get_ltp(connector, '99926000', 'NIFTY', 'NSE', tick_time)
     if is_there_existing_trade():
         active_positions = get_active_positions()
-        entry_trend,exit_trend = get_trend(file_path, tick_time)
+        entry_trend,exit_trend = get_trend(df_data, tick_time)
         trend_now = exit_trend
         df = pd.read_csv(config.ACTIVE_TRADES_CSV)
         opt_type = df['opt_type'].iloc[0]
@@ -325,7 +350,7 @@ def process(connector, file_path, tick_time = None):
             logger.info('Exited on expiry.')
             return
         if not trend_now == 'EXIT' :
-            logger.info(f"{tick_time} Trend unchanged, Trend {trend_now}.")
+            #logger.debug(f"Trend unchanged, Trend {trend_now}.")
             return
 
         exit_positions = process_option_buy_exit(connector, active_positions)
@@ -334,11 +359,11 @@ def process(connector, file_path, tick_time = None):
         logger.info('Exited on trend reversal.')
 
     if not is_there_existing_trade():
-        trade = new_trade(file_path, spot_ltp,tick_time)
+        trade = new_trade(df_data, spot_ltp,tick_time)
         if not trade:
             return
         positions = process_option_buy_entry(connector, trade)
-
+        pnl_calculator.get_sl_target(connector,df_data,positions,trade['atm_symbol'])
         if config.LIVE:
             # If there is pending target order , make sure to make it market so it gets closed 
             #modify_limit_orders_to_market(connector, STRATEGY_TAG)
@@ -357,7 +382,7 @@ def process(connector, file_path, tick_time = None):
             positions = place_order.main(connector, positions, 'STOPLOSS', 20)
 
 
-        logger.info('Entered new position.')
+        logger.info(f"Entered new position. {trade['atm_symbol']}")
 
 def is_within_time_range():
     """Check if current time is within trading hours."""

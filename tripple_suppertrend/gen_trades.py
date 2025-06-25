@@ -16,6 +16,8 @@ sys.path.append(base_path)
 import config
 from common_utils import angelone
 import gen_trades_core as core
+import pnl_calculator
+NIFTY_TOKEN = "99926000" 
 
 def main():
     connector = angelone.AngelOneConnector()
@@ -33,19 +35,42 @@ def main():
         now = datetime.now()
         if core.is_within_time_range() or config.TESTING:
             if not config.SIMULATE:
-                ohlc_df = core.till_date_ohlc_data.main(smart_api)
+                ohlc_df = core.till_date_ohlc_data.main(smart_api,NIFTY_TOKEN,'NSE')
                 if ohlc_df.empty:
                     sys.exit('OHLC data unavailable.')
                 ohlc_df = core.convert_to_5min(ohlc_df)
                 supertrend_file = core.supertrend.main(ohlc_df)
-                #core.process(connector, supertrend_file)
+                try:
+                    df = pd.read_csv(supertrend_file)
+                except Exception as e:
+                    logger.error(f"Error reading file: {e}")
+                    continue
+                core.process(connector, df)
                 trading_today = True
             else :
-                start = "2025-05-02 09:15:00"
-                end = "2025-05-02 15:30:00"
-                minute_range = pd.date_range(start=start, end=end, freq='T')
-                for timestamp in minute_range:
-                    core.process(connector, config.CSV_FILE,timestamp)
+                print("**** SIMULATION MODE ***")
+                start = "2025-05-02 10:50:00"
+                end = "2025-05-30 15:30:00"
+                minute_range = pd.date_range(start=start, end=end, freq='5T')
+                filtered_range = minute_range[(minute_range.time >= pd.to_datetime("09:00").time()) & 
+                              (minute_range.time <= pd.to_datetime("15:30").time())]
+
+                try:
+                    df = pd.read_csv(config.CSV_FILE)
+                except Exception as e:
+                    logger.error(f"Error reading file: {e}")
+                    continue
+
+
+
+
+
+                df['datetime'] = pd.to_datetime(df['datetime'])  # Ensure datetime is parsed
+            
+                for i in range(1, len(df) + 1):
+                    simulated_df = df.iloc[:i]  # Get first i rows
+                    core.process(connector, simulated_df)
+
                 return 
         else:
             if trading_today :

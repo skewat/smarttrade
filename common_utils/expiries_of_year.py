@@ -78,6 +78,6 @@ def main(year, backtest=False):
         backtest (bool): Whether to exclude recent dates for backtesting.
     """
     exp_dates = get_all_expiry_dates(year, backtest)
-    print(exp_dates)
+    #print(exp_dates)
     return exp_dates
 

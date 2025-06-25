@@ -1,4 +1,5 @@
-import os
+import os,sys
+import re 
 import requests
 import json
 from datetime import datetime
@@ -14,6 +15,8 @@ def download_symbol_token_file():
         print(' ')
     else:
         url = "https://margincalculator.angelone.in/OpenAPI_File/files/OpenAPIScripMaster.json"
+        url = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
+
         try:
             response = requests.get(url)
             response.raise_for_status()
@@ -35,7 +38,23 @@ def load_json_data(filename):
         print(f"Error loading JSON: {e}")
         return None
 
-def get_symbol_token(name, expiry, strike_atm, strike_otm,opt_type):
+def get_single_symbol_token(name, symbol_type):
+    if symbol_type == 'OPTION' :
+        match = re.match(r"([A-Z]+)(\d{2}[A-Z]{3}\d{2})(\d+)(CE|PE)", name)
+    if match:
+        symbol, expiry_raw, strike_price, option_type = match.groups()
+        expiry = datetime.strptime(expiry_raw, "%d%b%y").date()
+        data = main()
+        for i in data:
+            if i['exch_seg'] == 'NFO' and  i['symbol'] == name:
+                if i['symbol'] == name:
+                    atm_token = i['token']
+                    return atm_token
+    else :
+        print(f"Invalid symbol {name}")
+
+
+def get_symbol_token(name, expiry=None, strike_atm=None, strike_otm=None,opt_type=None):
     '''Symbol token is needed for placing order and historical data , this token is not generic and
        it's provided by angelone @
        curl -k https://margincalculator.angelone.in/OpenAPI_File/files/OpenAPIScripMaster.json
@@ -43,8 +62,15 @@ def get_symbol_token(name, expiry, strike_atm, strike_otm,opt_type):
     '''
     atm_token = None
     otm_token = None
+    atm_symbol = None
+    otm_symbol = None
     data = main()
     for i in data:
+        # For single symbol
+        if strike_otm == None and opt_type == None :
+            if i['exch_seg'] == 'NFO' and  i['symbol'] == name :
+                symbol_token = i['token']
+                return symbol_token 
         if i['exch_seg'] == 'NFO' and  i['name'] == name :
             atm_symbol = f"{name}{expiry}{strike_atm}{opt_type}"
             otm_symbol = f"{name}{expiry}{strike_otm}{opt_type}"

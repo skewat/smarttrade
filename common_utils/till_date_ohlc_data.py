@@ -28,14 +28,29 @@ def combine_todays_ohlc(existing_df, minute_csv):
     """
     if not os.path.exists(minute_csv) or os.stat(minute_csv).st_size == 0:
         return existing_df
-    minute_df = pd.read_csv(minute_csv, parse_dates=['minute'])
-    minute_df.rename(columns={'minute': 'datetime'}, inplace=True)
+    minute_df = pd.read_csv(minute_csv, parse_dates=['datetime'])
+    minute_df.columns = [col.lower() for col in minute_df.columns]
+    #minute_df.rename(columns={'minute': 'datetime'}, inplace=True)
 
-    minute_df = minute_df[['datetime', 'open', 'high', 'low', 'close']]
-    minute_df = minute_df[
+    #try :
+    #    minute_df = minute_df[['datetime', 'open', 'high', 'low', 'close']]
+    #except:
+    #    minute_df = minute_df[['Datetime', 'Open', 'High', 'Low', 'Close']]
+
+    # Assuming minute_df is already defined
+    minute_df['datetime'] = pd.to_datetime(minute_df['datetime'])
+
+    # Now this line is safe
+    filtered_df = minute_df[
         (minute_df['datetime'].dt.time >= time(9, 15)) &
         (minute_df['datetime'].dt.time <= time(15, 30))
     ]
+
+   # print(minute_df,existing_df,minute_csv)
+   # minute_df = minute_df[
+   #     (minute_df['datetime'].dt.time >= time(9, 15)) &
+   #     (minute_df['datetime'].dt.time <= time(15, 30))
+   # ]
 
     minute_df.set_index('datetime', inplace=True)
     resampled_df = minute_df.resample('1T', label='right', closed='right').agg({
@@ -48,7 +63,10 @@ def combine_todays_ohlc(existing_df, minute_csv):
 
     existing_df = existing_df[['datetime', 'open', 'high', 'low', 'close']]
     combined_df = pd.concat([existing_df, resampled_df])
-    combined_df['datetime'] = pd.to_datetime(combined_df['datetime']).dt.tz_localize(None)
+    #combined_df['datetime'] = pd.to_datetime(combined_df['datetime']).dt.tz_localize(None)
+    combined_df['datetime'] = pd.to_datetime(combined_df['datetime'], utc=True).dt.tz_convert(None)
+
+
     combined_df = combined_df.drop_duplicates(subset='datetime').sort_values('datetime').reset_index(drop=True)
 
     return combined_df
@@ -107,7 +125,7 @@ def get_two_dates():
     latest_working_day = get_previous_working_day(today)
 
     second_working_day = latest_working_day
-    for _ in range(25):
+    for _ in range(30):
         second_working_day = get_previous_working_day(second_working_day)
 
     return latest_working_day.strftime('%Y-%m-%d'), second_working_day.strftime('%Y-%m-%d')
@@ -122,7 +140,7 @@ def get_date_range():
     date1, date2 = get_two_dates()
     return f"{date1} 15:30", f"{date2} 09:15"
 
-def fetch_data(smartApi):
+def fetch_data(smartApi,symbol_token,exchange='NSE'):
     """
     Fetch historical Nifty50 hourly OHLC data from AngelOne.
 
@@ -135,13 +153,14 @@ def fetch_data(smartApi):
     to_date, from_date = get_date_range()
     try:
         historicParam = {
-            "exchange": "NSE",
-            "symboltoken": "99926000",
+            "exchange": exchange,
+            "symboltoken": symbol_token,
             "interval": "ONE_MINUTE",
             "fromdate": from_date,
             "todate": to_date
         }
-        return smartApi.getCandleData(historicParam)
+        data = smartApi.getCandleData(historicParam)
+        return data
     except Exception as e:
         logger.exception(f"Historic API failed: {e}")
 
@@ -158,25 +177,24 @@ def logout(smartApi):
     except Exception as e:
         logger.exception(f"Logout failed: {e}")
 
-def get_daily_data(smartApi, filename_prefix="daily_data"):
+def get_daily_data(smartApi, symbol_token, exchange, data_file):
     """Fetch data once per day and cache it in a CSV file."""
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    filename = f"{filename_prefix}_{today_str}.csv"
+    filename = data_file
 
-    if os.path.exists(filename):
+    if os.path.exists(filename) and 0:
         # If file exists, load from CSV
-        print(f"Loading data from existing file: {filename}")
+        logger.info(f"Loading data from existing file: {filename}")
         df = pd.read_csv(filename)
     else:
         # If file does not exist, fetch and save
-        print(f"Fetching new data and saving to file: {filename}")
-        data = fetch_data(smartApi)  # Your function
-        df = pd.DataFrame(data["data"], columns=["Datetime", "Open", "High", "Low", "Close", "Volume"])
+        #print(f"Fetching new data and saving to file: {filename}")
+        data = fetch_data(smartApi,symbol_token, exchange)  # Your function
+        df = pd.DataFrame(data["data"], columns=["datetime", "open", "high", "low", "close", "volume"])
         df.to_csv(filename, index=False)
 
     return df
 
-def fetch_ohlc(smartApi):
+def fetch_ohlc(smartApi,symbol_token, exchange, data_file):
     """
     Fetch and prepare historical OHLC data as DataFrame.
 
@@ -186,19 +204,19 @@ def fetch_ohlc(smartApi):
     Returns:
         pd.DataFrame: DataFrame with OHLC data.
     """
-    df = get_daily_data(smartApi)
-    df["Datetime"] = pd.to_datetime(df["Datetime"])
-    df.set_index("Datetime", inplace=True)
+    df = get_daily_data(smartApi,symbol_token, exchange, data_file)
+    df["datetime"] = pd.to_datetime(df["datetime"])
+    df.set_index("datetime", inplace=True)
     return df
 
-def main(smartApi):
+def main(smartApi,symbol_token,exchange):
     today = datetime.today().date()
-    data_file = f"/home/ckewat/options_strategy/smarttrade/data/ohlc_data/t_nifty50_ohlc_{today}.csv"
+    data_file = f"/home/ckewat/options_strategy/smarttrade/data/ohlc_data/{symbol_token}_ohlc_{today}.csv"
     df = pd.DataFrame()
 #    if not os.path.exists(data_file):
 #        print(f"Todays OHLC data file {data_file} does not exist")
 #        return df
-    df = fetch_ohlc(smartApi).reset_index()
+    df = fetch_ohlc(smartApi, symbol_token, exchange, data_file).reset_index()
     df.columns = df.columns.str.lower()
     df['datetime'] = pd.to_datetime(df['datetime']).dt.tz_localize(None)
     return combine_todays_ohlc(df,data_file)

@@ -44,10 +44,10 @@ class OHLCManager:
         self.folder = folder or os.getcwd()
         os.makedirs(self.folder, exist_ok=True)
 
-    def write_ohlc_to_csv(self, token_data):
+    def write_ohlc_to_csv(self, token_data,token):
         """Writes OHLC data to a CSV file."""
         date = token_data['minute'].date()
-        file_path = os.path.join(self.folder, f"t_nifty50_ohlc_{date}.csv")
+        file_path = os.path.join(self.folder, f"t_{token}_ohlc_{date}.csv")
         headers = ['minute', 'open', 'high', 'low', 'close']
 
         row = {
@@ -71,7 +71,7 @@ class OHLCManager:
         minute = timestamp.replace(second=0, microsecond=0)
         if token not in self.ohlc_data or self.ohlc_data[token]['minute'] != minute:
             if token in self.ohlc_data:
-                self.write_ohlc_to_csv(self.ohlc_data[token])
+                self.write_ohlc_to_csv(self.ohlc_data[token],token)
             self.ohlc_data[token] = {
                 'minute': minute,
                 'open': price,
@@ -80,6 +80,7 @@ class OHLCManager:
                 'close': price
             }
         else:
+            print('-'*80)
             self.ohlc_data[token]['high'] = max(self.ohlc_data[token]['high'], price)
             self.ohlc_data[token]['low'] = min(self.ohlc_data[token]['low'], price)
             self.ohlc_data[token]['close'] = price
