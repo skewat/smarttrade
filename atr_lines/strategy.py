@@ -58,12 +58,13 @@ def on_entry(position_type, dt, price):
     spread_name, buy_symbol, sell_symbol = spread.generate_credit_spread(strike, expiry, direction)
     SPREAD_NAME = spread_name
     spread.take_spread_position(spread_name, buy_symbol, sell_symbol)
+    logger.debug(f"Entry... {position_type}")
 
 def on_monitor(dt):
     global CONNECTOR
     spread_name = SPREAD_NAME
     connector = CONNECTOR
-    pnl_pct = spread.monitor_pnl_and_exit(spread_name, target_pnl_pct=0.03)
+    pnl_pct = spread.monitor_pnl(spread_name, target_pnl_pct=0.03)
     return pnl_pct
 
 def on_exit(position_type, dt, reason, price):
@@ -74,6 +75,7 @@ def on_exit(position_type, dt, reason, price):
     logger.info(f"EXIT: {dt} - {position_type} ({reason}) at {price}")
     spread.exit_position(spread_name, reason="Signal")
     SPREAD_NAME = None
+    logger.debug(f"Exit ... {position_type}")
 
 
 def add_ema_crossover_signal(df):
@@ -132,7 +134,6 @@ def run_strategy(connector, df):
     df = add_ema_crossover_signal(df)
     #if not SIMULATE:
     #    df = df.tail(1).reset_index(drop=True)
-    print(df.tail(20))
     for i in range(len(df)):
         row = df.iloc[i]
         prev = df.iloc[i - 1]
@@ -165,7 +166,7 @@ def run_strategy(connector, df):
             current_position = None
 
         # Profit Exit
-        if current_position and entry_price > 0:
+        if current_position :
             change = on_monitor(row['datetime'])
             if change and ( change >= PROFIT_THRESHOLD ):
                 msg = f"{row['datetime']} - EXIT_{current_position}_PROFIT"
@@ -250,8 +251,8 @@ if __name__ == "__main__":
         with open("/mnt/data/back_test.txt", "w") as f:
             for line in logs:
                 f.write(line + "\n")
-        print("✅ Simulation complete. Output written to back_test.txt")
+        print("Simulation complete. Output written to back_test.txt")
     else:
-        print("✅ Execution mode complete. Entry/Exit hooks triggered.")
+        print("Execution mode complete. Entry/Exit hooks triggered.")
 
 
