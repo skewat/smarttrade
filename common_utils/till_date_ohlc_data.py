@@ -29,9 +29,10 @@ def combine_todays_ohlc(existing_df, minute_csv):
     todays_data = minute_csv
     if not os.path.exists(minute_csv) or os.stat(minute_csv).st_size == 0:
         return existing_df
-    minute_df = pd.read_csv(minute_csv, parse_dates=['datetime'])
+    minute_df = pd.read_csv(minute_csv, parse_dates=['minute'])
     minute_df.columns = [col.lower() for col in minute_df.columns]
-    minute_df['datetime'] = pd.to_datetime(minute_df['datetime'])
+    print('-'*80)
+    minute_df['datetime'] = pd.to_datetime(minute_df['minute'])
     # Now this line is safe
     filtered_df = minute_df[
         (minute_df['datetime'].dt.time >= time(9, 15)) &

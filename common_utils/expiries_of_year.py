@@ -41,7 +41,7 @@ def get_calendar_dates(year):
     mondays = all_dates[all_dates.weekday == 0]  # 0 = Monday
     return mondays.strftime("%Y-%m-%d").tolist()
 
-def get_all_expiry_dates(year, backtest=False):
+def get_all_expiry_dates(year=None, backtest=False):
     """
     Returns all expiry dates for a given year. If backtesting is enabled,
     it only includes dates at least 7 days old.
@@ -53,6 +53,8 @@ def get_all_expiry_dates(year, backtest=False):
     Returns:
         list of str: List of expiry dates in 'DDMMMYY' format.
     """
+    year = datetime.datetime.now().year
+
     all_exp_dates = []
     calendar_dates = get_calendar_dates(year)
     today = datetime.datetime.now()
