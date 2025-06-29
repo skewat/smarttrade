@@ -126,12 +126,12 @@ def run_strategy(connector, df):
     current_position = None
     entry_price = 0.0
     df = add_ema_crossover_signal(df)
-    df = df.tail(10)
-    #if not SIMULATE:
-    #    df = df.tail(1).reset_index(drop=True)
+    if not SIMULATE:
+        df = df.tail(1).reset_index(drop=True)
+
     for i in range(len(df)):
         row = df.iloc[i]
-        prev = df.iloc[i - 1]
+        print(row['datetime'])
         # 3:15 PM Exit
         if row['time'] >= pd.to_datetime('15:15:00').time():
             if current_position:
@@ -141,10 +141,11 @@ def run_strategy(connector, df):
                 else:
                     on_exit(connector, current_position, row['datetime'], "315PM", row['close'])
                 current_position = None
-                continue
+                # No more trades now .. 
+                return
 
         # Crossover Exit
-        if current_position == 'BULL_PUT' and row['ema_fast'] < row['ema_slow'] and prev['ema_fast'] >= prev['ema_slow']:
+        if current_position == 'BULL_PUT' and row['ema_crossover'] == 'bearish':
             msg = f"{row['datetime']} - EXIT_BULL_PUT_XOVER"
             if SIMULATE:
                 signal_log.append(msg)
@@ -152,7 +153,7 @@ def run_strategy(connector, df):
                 on_exit(connector, "BULL_PUT", row['datetime'], "XOVER", row['close'])
             current_position = None
 
-        elif current_position == 'BEAR_CALL' and row['ema_fast'] > row['ema_slow'] and prev['ema_fast'] <= prev['ema_slow']:
+        elif current_position == 'BEAR_CALL' and row['ema_crossover'] == 'bullish':
             msg = f"{row['datetime']} - EXIT_BEAR_CALL_XOVER"
             if SIMULATE:
                 signal_log.append(msg)
@@ -173,13 +174,19 @@ def run_strategy(connector, df):
 
         # Entry Logic
         if not current_position:
-            if row['time'] == pd.to_datetime('09:30:00').time():
-                if row['close'] > row['atr_upper_80']:
+            if row['time'] >= pd.to_datetime('14:45:00').time():
+                # No new entry after 2:45 PM
+                continue
+            if row['time'] == pd.to_datetime('09:20:00').time():
+                logger.info('===================== Start of the Day ===================')
+                # Do not jump to trade if opened too high or low ( Above or below TAR )
+                if row['close'] > row['atr_upper']:
                     pass
-                elif row['close'] < row['atr_lower_80']:
+                elif row['close'] < row['atr_lower']:
                     pass
                 else:
-                    if row['ema_fast'] > row['ema_slow'] and prev['ema_fast'] <= prev['ema_slow']:
+                    # If yesterdays Bulish continued, with a gap up follow it 
+                    if row['ema_fast'] > row['ema_slow']:
                         msg = f"{row['datetime']} - ENTER_BULL_PUT"
                         if SIMULATE:
                             signal_log.append(msg)
@@ -187,7 +194,8 @@ def run_strategy(connector, df):
                             on_entry(connector, "BULL_PUT", row['datetime'], row['close'])
                         current_position = 'BULL_PUT'
                         entry_price = row['close']
-                    elif row['ema_fast'] < row['ema_slow'] and prev['ema_fast'] >= prev['ema_slow']:
+                    # If yesterdays Bearish continued, with a gap down follow it 
+                    elif row['ema_fast'] < row['ema_slow']:
                         msg = f"{row['datetime']} - ENTER_BEAR_CALL"
                         if SIMULATE:
                             signal_log.append(msg)
@@ -197,7 +205,7 @@ def run_strategy(connector, df):
                         entry_price = row['close']
             else:
                 if row['ema_crossover'] == 'bullish':
-                    logger.info(f"{row['time']}, {prev['ema_fast']}, {prev['ema_slow']},{row['ema_crossover']}")
+                    logger.info(f"{row['time']}, {row['ema_crossover']}")
                     msg = f"{row['datetime']} - ENTER_BULL_PUT"
                     if SIMULATE:
                         signal_log.append(msg)
@@ -206,7 +214,7 @@ def run_strategy(connector, df):
                     current_position = 'BULL_PUT'
                     entry_price = row['close']
                 if row['ema_crossover'] == 'bearish':
-                    logger.info(f"{row['time']}, {prev['ema_fast']}, {prev['ema_slow']},{row['ema_crossover']}")
+                    logger.info(f"{row['time']}, {row['ema_crossover']}")
                     msg = f"{row['datetime']} - ENTER_BEAR_CALL"
                     if SIMULATE:
                         signal_log.append(msg)
@@ -215,7 +223,7 @@ def run_strategy(connector, df):
                     current_position = 'BEAR_CALL'
                     entry_price = row['close']
                 elif row['close'] >= row['atr_upper']:
-                    logger.info(f"{row['time']}, {prev['ema_fast']}, {prev['ema_slow']},{'ATR Upper'}")
+                    logger.info(f"{row['time']}, crossed ATR {'ATR Upper'}")
                     if current_position != 'BEAR_CALL':
                         msg = f"{row['datetime']} - ENTER_BEAR_CALL_TOUCH"
                         if SIMULATE:
@@ -225,7 +233,7 @@ def run_strategy(connector, df):
                         current_position = 'BEAR_CALL'
                         entry_price = row['close']
                 elif row['close'] <= row['atr_lower']:
-                    logger.info(f"{row['time']}, {prev['ema_fast']}, {prev['ema_slow']},{'ATR Lower'}")
+                    logger.info(f"{row['time']}, crossed lower ATR {'ATR Lower'}")
                     if current_position != 'BULL_PUT':
                         msg = f"{row['datetime']} - ENTER_BULL_PUT_TOUCH"
                         if SIMULATE:
