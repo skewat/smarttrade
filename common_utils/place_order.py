@@ -24,10 +24,13 @@ class StrategyManager:
         logger.info("Event: Taking Entry")
 
         # Sort positions so that BUY orders come before SELL
-        positions = sorted(positions, key=lambda x: x.data["order_type"] != "BUY")
+        if type(positions) == type([]) :
+            positions = sorted(positions, key=lambda x: x.data["order_type"] != "BUY")
 
-        for position in positions:
-            order = self._place_order(position,position_type)
+            for position in positions:
+                order = self._place_order(position,position_type)
+        else :
+            order = self._place_order(positions,position_type)
 
     # input is one position at a time 
     def target_order(self,position, target_point, stop_loss = False):

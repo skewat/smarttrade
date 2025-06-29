@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import credit_spread as spread
 from logzero import logger
+import time 
 import core
 import os
 import sys
@@ -42,38 +43,34 @@ def calculate_atr(df, period=ATR_PERIOD):
     atr = tr.rolling(window=period).mean()
     return atr
 
-def on_entry(position_type, dt, price):
-    global CONNECTOR
+def on_entry(connector, position_type, dt, price):
     global SPREAD_NAME
-    connector = CONNECTOR
     spot_ltp = core.get_ltp(connector, '99926000', 'NIFTY', 'NSE')
     strike = int(spot_ltp/50)*50
     expiries = expiries_of_year.main(None)
     expiry = core.find_valid_expiry(expiries)
+
     logger.info(f"ENTRY: {dt} - {position_type} at {price}")
     if position_type == 'BULL_PUT':
         direction = "bullish"
     if position_type == 'BEAR_CALL':
         direction = "bearish"
-    spread_name, buy_symbol, sell_symbol = spread.generate_credit_spread(strike, expiry, direction)
+    spread_name, buy_symbol, sell_symbol = spread.generate_credit_spread(connector, strike, expiry, direction)
     SPREAD_NAME = spread_name
-    spread.take_spread_position(spread_name, buy_symbol, sell_symbol)
+    spread.take_spread_position(connector, spread_name, buy_symbol, sell_symbol,dt)
     logger.debug(f"Entry... {position_type}")
 
-def on_monitor(dt):
-    global CONNECTOR
+def on_monitor(connector, dt):
+    global SPREAD_NAME
     spread_name = SPREAD_NAME
-    connector = CONNECTOR
-    pnl_pct = spread.monitor_pnl(spread_name, target_pnl_pct=0.03)
+    pnl_pct = spread.monitor_pnl(connector, spread_name, target_pnl_pct=0.03)
     return pnl_pct
 
-def on_exit(position_type, dt, reason, price):
-    global CONNECTOR
+def on_exit(connector, position_type, dt, reason, price):
     global SPREAD_NAME
-    connector = CONNECTOR
     spread_name = SPREAD_NAME
     logger.info(f"EXIT: {dt} - {position_type} ({reason}) at {price}")
-    spread.exit_position(spread_name, reason="Signal")
+    spread.exit_position(connector, spread_name, dt, reason="Signal")
     SPREAD_NAME = None
     logger.debug(f"Exit ... {position_type}")
 
@@ -107,12 +104,9 @@ def add_ema_crossover_signal(df):
 
 def run_strategy(connector, df):
     ''' Data Frame is 5 min OHLC '''
-    global CONNECTOR
-    CONNECTOR = connector
     df = df.copy()
     df['date'] = df['datetime'].dt.date
     df['time'] = df['datetime'].dt.time
-
     # Calculate daily ATR
     daily = df.resample('1D', on='datetime').agg({
         'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
@@ -132,6 +126,7 @@ def run_strategy(connector, df):
     current_position = None
     entry_price = 0.0
     df = add_ema_crossover_signal(df)
+    df = df.tail(10)
     #if not SIMULATE:
     #    df = df.tail(1).reset_index(drop=True)
     for i in range(len(df)):
@@ -144,7 +139,7 @@ def run_strategy(connector, df):
                 if SIMULATE:
                     signal_log.append(msg)
                 else:
-                    on_exit(current_position, row['datetime'], "315PM", row['close'])
+                    on_exit(connector, current_position, row['datetime'], "315PM", row['close'])
                 current_position = None
                 continue
 
@@ -154,7 +149,7 @@ def run_strategy(connector, df):
             if SIMULATE:
                 signal_log.append(msg)
             else:
-                on_exit("BULL_PUT", row['datetime'], "XOVER", row['close'])
+                on_exit(connector, "BULL_PUT", row['datetime'], "XOVER", row['close'])
             current_position = None
 
         elif current_position == 'BEAR_CALL' and row['ema_fast'] > row['ema_slow'] and prev['ema_fast'] <= prev['ema_slow']:
@@ -162,18 +157,18 @@ def run_strategy(connector, df):
             if SIMULATE:
                 signal_log.append(msg)
             else:
-                on_exit("BEAR_CALL", row['datetime'], "XOVER", row['close'])
+                on_exit(connector, "BEAR_CALL", row['datetime'], "XOVER", row['close'])
             current_position = None
 
         # Profit Exit
         if current_position :
-            change = on_monitor(row['datetime'])
+            change = on_monitor(connector, row['datetime'])
             if change and ( change >= PROFIT_THRESHOLD ):
                 msg = f"{row['datetime']} - EXIT_{current_position}_PROFIT"
                 if SIMULATE:
                     signal_log.append(msg)
                 else:
-                    on_exit(current_position, row['datetime'], "PROFIT", row['close'])
+                    on_exit(connector, current_position, row['datetime'], "PROFIT", row['close'])
                 current_position = None
 
         # Entry Logic
@@ -189,7 +184,7 @@ def run_strategy(connector, df):
                         if SIMULATE:
                             signal_log.append(msg)
                         else:
-                            on_entry("BULL_PUT", row['datetime'], row['close'])
+                            on_entry(connector, "BULL_PUT", row['datetime'], row['close'])
                         current_position = 'BULL_PUT'
                         entry_price = row['close']
                     elif row['ema_fast'] < row['ema_slow'] and prev['ema_fast'] >= prev['ema_slow']:
@@ -197,7 +192,7 @@ def run_strategy(connector, df):
                         if SIMULATE:
                             signal_log.append(msg)
                         else:
-                            on_entry("BEAR_CALL", row['datetime'], row['close'])
+                            on_entry(connector, "BEAR_CALL", row['datetime'], row['close'])
                         current_position = 'BEAR_CALL'
                         entry_price = row['close']
             else:
@@ -207,7 +202,7 @@ def run_strategy(connector, df):
                     if SIMULATE:
                         signal_log.append(msg)
                     else:
-                        on_entry("BULL_PUT", row['datetime'], row['close'])
+                        on_entry(connector, "BULL_PUT", row['datetime'], row['close'])
                     current_position = 'BULL_PUT'
                     entry_price = row['close']
                 if row['ema_crossover'] == 'bearish':
@@ -216,7 +211,7 @@ def run_strategy(connector, df):
                     if SIMULATE:
                         signal_log.append(msg)
                     else:
-                        on_entry("BEAR_CALL", row['datetime'], row['close'])
+                        on_entry(connector,"BEAR_CALL", row['datetime'], row['close'])
                     current_position = 'BEAR_CALL'
                     entry_price = row['close']
                 elif row['close'] >= row['atr_upper']:
@@ -226,7 +221,7 @@ def run_strategy(connector, df):
                         if SIMULATE:
                             signal_log.append(msg)
                         else:
-                            on_entry("BEAR_CALL", row['datetime'], row['close'])
+                            on_entry(connector, "BEAR_CALL", row['datetime'], row['close'])
                         current_position = 'BEAR_CALL'
                         entry_price = row['close']
                 elif row['close'] <= row['atr_lower']:
@@ -236,7 +231,7 @@ def run_strategy(connector, df):
                         if SIMULATE:
                             signal_log.append(msg)
                         else:
-                            on_entry("BULL_PUT", row['datetime'], row['close'])
+                            on_entry(connector, "BULL_PUT", row['datetime'], row['close'])
                         current_position = 'BULL_PUT'
                         entry_price = row['close']
 

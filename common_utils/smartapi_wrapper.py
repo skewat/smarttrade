@@ -31,9 +31,9 @@ class SmartAPIWrapper:
 
         for attempt in range(1, self.max_retries + 1):
             try:
-                logging.info(f"Calling API: {func_name} (Attempt {attempt})")
+                logging.debug(f"Calling API: {func_name} (Attempt {attempt})")
                 # Optional: log args safely if needed
-                logging.info(f"Args: {args}, Kwargs: {kwargs}")
+                logging.debug(f"Args: {args}, Kwargs: {kwargs}")
 
                 response = func(*args, **kwargs)
 
@@ -66,7 +66,6 @@ class SmartAPIWrapper:
 
     def place_order(self, order_params):
         """Place an order and get full response"""
-        print(order_params)
         return self._retry_api_call(self.smart_api.placeOrderFullResponse, order_params)
 
     def get_order_book(self):
