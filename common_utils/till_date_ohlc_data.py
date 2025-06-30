@@ -31,7 +31,6 @@ def combine_todays_ohlc(existing_df, minute_csv):
         return existing_df
     minute_df = pd.read_csv(minute_csv, parse_dates=['minute'])
     minute_df.columns = [col.lower() for col in minute_df.columns]
-    print('-'*80)
     minute_df['datetime'] = pd.to_datetime(minute_df['minute'])
     # Now this line is safe
     filtered_df = minute_df[

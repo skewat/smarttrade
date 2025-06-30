@@ -190,12 +190,14 @@ class StrategyManager:
             }
 
         try:
-            logger.info('Placing order...')
+            logger.info(f"Placing order...{order}")
             response = self.wrapper_api.place_order(order)
             order_id = response["data"]["orderid"]
             if response['message'] != 'SUCCESS' :
                 raise Exception(f"Order status not valid: {response['message']}")
             logger.info("Waiting for order to be placed ..")
+            # Just delay by 2 sec for order execution so that margin is adjusted
+            time.sleep(2)
             return order
 
             start_time = time.time()

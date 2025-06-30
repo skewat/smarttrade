@@ -30,6 +30,7 @@ EMA_FAST = 3
 EMA_SLOW = 20
 SPREAD_NAME = None
 CONNECTOR = None
+SEEN_CANDLES = []
 # --------------------------------------------------
 
 def calculate_ema(df, period):
@@ -104,6 +105,8 @@ def add_ema_crossover_signal(df):
 
 def run_strategy(connector, df):
     ''' Data Frame is 5 min OHLC '''
+    global SEEN_CANDLES
+
     df = df.copy()
     df['date'] = df['datetime'].dt.date
     df['time'] = df['datetime'].dt.time
@@ -131,7 +134,7 @@ def run_strategy(connector, df):
 
     for i in range(len(df)):
         row = df.iloc[i]
-        print(row['datetime'])
+
         # 3:15 PM Exit
         if row['time'] >= pd.to_datetime('15:15:00').time():
             if current_position:
@@ -145,7 +148,7 @@ def run_strategy(connector, df):
                 return
 
         # Crossover Exit
-        if current_position == 'BULL_PUT' and row['ema_crossover'] == 'bearish':
+        if  str(row['time']) not in SEEN_CANDLES and current_position == 'BULL_PUT' and row['ema_crossover'] == 'bearish':
             msg = f"{row['datetime']} - EXIT_BULL_PUT_XOVER"
             if SIMULATE:
                 signal_log.append(msg)
@@ -173,7 +176,7 @@ def run_strategy(connector, df):
                 current_position = None
 
         # Entry Logic
-        if not current_position:
+        if not current_position and str(row['time']) not in SEEN_CANDLES :
             if row['time'] >= pd.to_datetime('14:45:00').time():
                 # No new entry after 2:45 PM
                 continue
@@ -242,7 +245,8 @@ def run_strategy(connector, df):
                             on_entry(connector, "BULL_PUT", row['datetime'], row['close'])
                         current_position = 'BULL_PUT'
                         entry_price = row['close']
-
+        if row['time'] not in SEEN_CANDLES:
+            SEEN_CANDLES.append(str(row['time']))
     return signal_log
 
 # --------- Main Execution ----------
