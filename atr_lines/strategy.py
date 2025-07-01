@@ -107,6 +107,7 @@ def run_strategy(connector, df):
     ''' Data Frame is 5 min OHLC '''
     global SEEN_CANDLES
 
+    previous_day_trend = None
     df = df.copy()
     df['date'] = df['datetime'].dt.date
     df['time'] = df['datetime'].dt.time
@@ -129,12 +130,14 @@ def run_strategy(connector, df):
     current_position = None
     entry_price = 0.0
     df = add_ema_crossover_signal(df)
+    df.to_csv('test_df.csv', index=False)
     if not SIMULATE:
         df = df.tail(1).reset_index(drop=True)
+        #df.to_csv('test_df.csv', index=False)
 
     for i in range(len(df)):
         row = df.iloc[i]
-
+        logger.info(f".................{row['time']}.............................")
         # 3:15 PM Exit
         if row['time'] >= pd.to_datetime('15:15:00').time():
             if current_position:
@@ -148,21 +151,23 @@ def run_strategy(connector, df):
                 return
 
         # Crossover Exit
-        if  str(row['time']) not in SEEN_CANDLES and current_position == 'BULL_PUT' and row['ema_crossover'] == 'bearish':
+        if  str(row['time']) not in SEEN_CANDLES and current_position == 'BULL_PUT' and ( row['ema_crossover'] == 'bearish' or previous_day_trend == 'bearish'):
             msg = f"{row['datetime']} - EXIT_BULL_PUT_XOVER"
             if SIMULATE:
                 signal_log.append(msg)
             else:
                 on_exit(connector, "BULL_PUT", row['datetime'], "XOVER", row['close'])
             current_position = None
+            previous_day_trend = None
 
-        elif current_position == 'BEAR_CALL' and row['ema_crossover'] == 'bullish':
+        if str(row['time']) not in SEEN_CANDLES and current_position == 'BEAR_CALL' and ( row['ema_crossover'] == 'bullish' or  previous_day_trend == 'bullish'):
             msg = f"{row['datetime']} - EXIT_BEAR_CALL_XOVER"
             if SIMULATE:
                 signal_log.append(msg)
             else:
                 on_exit(connector, "BEAR_CALL", row['datetime'], "XOVER", row['close'])
             current_position = None
+            previous_day_trend = None
 
         # Profit Exit
         if current_position :
@@ -197,6 +202,7 @@ def run_strategy(connector, df):
                             on_entry(connector, "BULL_PUT", row['datetime'], row['close'])
                         current_position = 'BULL_PUT'
                         entry_price = row['close']
+                        previous_day_trend = "bullish"
                     # If yesterdays Bearish continued, with a gap down follow it 
                     elif row['ema_fast'] < row['ema_slow']:
                         msg = f"{row['datetime']} - ENTER_BEAR_CALL"
@@ -206,6 +212,7 @@ def run_strategy(connector, df):
                             on_entry(connector, "BEAR_CALL", row['datetime'], row['close'])
                         current_position = 'BEAR_CALL'
                         entry_price = row['close']
+                        previous_day_trend = "bearish"
             else:
                 if row['ema_crossover'] == 'bullish':
                     logger.info(f"{row['time']}, {row['ema_crossover']}")
