@@ -161,8 +161,11 @@ def get_daily_data(smartApi, symbol_token, exchange):
     """Fetch data once per day and cache it in a CSV file."""
     # If file does not exist, fetch and save
     #print(f"Fetching new data and saving to file: {filename}")
-    data = fetch_data(smartApi,symbol_token, exchange)  # Your function
-    df = pd.DataFrame(data["data"], columns=["datetime", "open", "high", "low", "close", "volume"])
+    try :
+        data = fetch_data(smartApi,symbol_token, exchange)  # Your function
+        df = pd.DataFrame(data["data"], columns=["datetime", "open", "high", "low", "close", "volume"])
+    except Exception as e:
+        logger.exception(f"Failed while fetching daily data : {e}")
 
     return df
 

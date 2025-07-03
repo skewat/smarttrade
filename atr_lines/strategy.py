@@ -255,18 +255,3 @@ def run_strategy(connector, df):
         if row['time'] not in SEEN_CANDLES:
             SEEN_CANDLES.append(str(row['time']))
     return signal_log
-
-# --------- Main Execution ----------
-if __name__ == "__main__":
-    df = pd.read_csv("/mnt/data/your_intraday_data.csv", parse_dates=['datetime'])
-    logs = run_strategy(df)
-
-    if SIMULATE:
-        with open("/mnt/data/back_test.txt", "w") as f:
-            for line in logs:
-                f.write(line + "\n")
-        print("Simulation complete. Output written to back_test.txt")
-    else:
-        print("Execution mode complete. Entry/Exit hooks triggered.")
-
-
