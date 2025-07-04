@@ -40,6 +40,14 @@ def run_live(connector, df):
     current_position = None
     previous_day_trend = None
 
+    # Filter to today's data only
+    today = pd.Timestamp.now().date()
+    df = df[df['datetime'].dt.date == today]
+
+    if df.empty:
+        logger.info("No data for today. Skipping run_live execution.")
+        return
+
     for idx, row in df.iterrows():
         row_dict = row.to_dict()
 
@@ -58,9 +66,10 @@ def run_live(connector, df):
         )
 
         for signal in signals:
+            logger.info(f"Candletime: {row['datetime']}")
             if signal["action"] == "ENTER":
                 pos = signal["position"]
-                logger.info(f"ENTRY: {pos}")
+                logger.info(f"ENTRY: {pos} {row['datetime']}")
                 on_entry(connector, pos, row['datetime'], row['close'])
                 current_position = pos
                 previous_day_trend = "bullish" if pos == "BULL_PUT" else "bearish"
@@ -68,7 +77,7 @@ def run_live(connector, df):
             elif signal["action"] == "EXIT":
                 pos = signal["position"]
                 reason = signal["reason"]
-                logger.info(f"EXIT: {pos} ({reason})")
+                logger.info(f"EXIT: {pos} ({reason}) {row['datetime']}")
                 on_exit(connector, pos, row['datetime'], reason, row['close'])
                 current_position = None
                 previous_day_trend = None
@@ -78,16 +87,19 @@ def on_entry(connector, position_type, dt, price):
     global SPREAD_NAME
     spot_ltp = core.get_ltp(connector, '99926000', 'NIFTY', 'NSE')
     strike = int(spot_ltp / 50) * 50
-    expiries = core.find_valid_expiry(expiries_of_year.main(None))
+    expiry = core.find_valid_expiry()
     direction = "bullish" if position_type == 'BULL_PUT' else "bearish"
     spread_name, buy_symbol, sell_symbol = spread.generate_credit_spread(
         connector, strike, expiry, direction
     )
     SPREAD_NAME = spread_name
     spread.take_spread_position(connector, spread_name, buy_symbol, sell_symbol, dt)
+    logger.info(f"Entry: {spread_name} {buy_symbol} {buy_symbol} {dt}")
+
 
 def on_exit(connector, position_type, dt, reason, price):
     global SPREAD_NAME
     spread.exit_position(connector, SPREAD_NAME, dt, reason=reason)
+    logger.info(f"Exit: {SPREAD_NAME} {reason} {dt}")
     SPREAD_NAME = None
 

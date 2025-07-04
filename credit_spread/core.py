@@ -95,7 +95,7 @@ def get_token(name):
     return token 
 
 
-def find_valid_expiry(expiries):
+def find_valid_expiry(expiries=expiries_of_year.main(2025)):
     """Pick the first expiry > 2 days from today."""
     dt = datetime.today()
     expiry = next((datetime.strptime(e, "%d%b%y") for e in expiries if datetime.strptime(e, "%d%b%y") > dt + timedelta(days=2)), None)
