@@ -82,13 +82,43 @@ def convert_to_5min(df):
 
     return  df_5min
 
-def get_ltp(connector, token='99926000', symbol='NIFTY', exchange='NSE'):
-    """Fetch latest traded price (LTP) from API."""
+#def get_ltp(connector, token='99926000', symbol='NIFTY', exchange='NSE'):
+#    """Fetch latest traded price (LTP) from API."""
+#    smart_api = connector.smart_api
+#    wrapper_api = smartapi_wrapper.SmartAPIWrapper(smart_api)
+#    data = wrapper_api.get_ltp(exchange,symbol,token)
+#
+#    return data['data']['ltp']
+
+_previous_ltp: dict[str, float] = {}
+
+def get_ltp( connector, token: str = '99926000', symbol: str = 'NIFTY', exchange: str = 'NSE'):
+    """
+    Fetch the latest traded price (LTP) from broker API,
+    fallback to previous value if error occurs.
+
+    Returns:
+        float: latest traded price
+        None: if no data ever available
+    """
     smart_api = connector.smart_api
     wrapper_api = smartapi_wrapper.SmartAPIWrapper(smart_api)
-    data = wrapper_api.get_ltp(exchange,symbol,token)
 
-    return data['data']['ltp']
+    key = f"{exchange}_{symbol}_{token}"
+
+    try:
+        data = wrapper_api.get_ltp(exchange, symbol, token)
+        ltp = data['data']['ltp']
+        _previous_ltp[key] = ltp
+        logger.debug(f"LTP for {symbol}: {ltp}")
+        return ltp
+    except (KeyError, TypeError) as e:
+        logger.warning(f"get_ltp: Unexpected data format, using previous LTP. Error: {e}")
+        return _previous_ltp.get(key)
+    except Exception as e:
+        logger.warning(f"get_ltp: Failed to fetch LTP, using previous LTP. Error: {e}")
+        return _previous_ltp.get(key)
+
 
 def get_token(name):
     token = symboltoken.get_single_symbol_token(name, 'OPTION')

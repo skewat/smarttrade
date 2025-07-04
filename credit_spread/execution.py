@@ -47,6 +47,7 @@ def run_live(connector, df):
     if df.empty:
         logger.info("No data for today. Skipping run_live execution.")
         return
+    df = df.tail(1)
 
     for idx, row in df.iterrows():
         row_dict = row.to_dict()
@@ -68,6 +69,13 @@ def run_live(connector, df):
         for signal in signals:
             logger.info(f"Candletime: {row['datetime']}")
             if signal["action"] == "ENTER":
+
+                # before taking a new entry
+                if current_position:
+                    logger.info(f"{row['datetime']}: Exiting current position {current_position} before taking new entry.")
+                    #on_exit(connector, current_position, row['datetime'], reason="NewEntry", price=row['close'])
+                    #current_position = None
+
                 pos = signal["position"]
                 logger.info(f"ENTRY: {pos} {row['datetime']}")
                 on_entry(connector, pos, row['datetime'], row['close'])
