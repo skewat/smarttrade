@@ -3,6 +3,7 @@ import indicators
 from strategy_engine import strategy_decision
 from logzero import logger
 import core
+import sys
 import credit_spread as spread
 
 # global state
@@ -65,7 +66,12 @@ def run_live(connector, df):
             SEEN_CANDLES_EXIT,
             profit_threshold=0.03,
         )
-
+        if signals :
+            # Make sure EXIT signals are processed before Entry
+            signals = sorted(signals, key=lambda x: 0 if x["action"] == "EXIT" else 1)
+        else :
+            continue
+        
         for signal in signals:
             logger.info(f"Candletime: {row['datetime']}")
             if signal["action"] == "ENTER":
@@ -73,8 +79,9 @@ def run_live(connector, df):
                 # before taking a new entry
                 if current_position:
                     logger.info(f"{row['datetime']}: Exiting current position {current_position} before taking new entry.")
-                    #on_exit(connector, current_position, row['datetime'], reason="NewEntry", price=row['close'])
-                    #current_position = None
+                    on_exit(connector, current_position, row['datetime'], "!! NewEntry", row['close'])
+                    current_position = None
+                    previous_day_trend = None
 
                 pos = signal["position"]
                 logger.info(f"ENTRY: {pos} {row['datetime']}")

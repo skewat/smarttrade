@@ -9,7 +9,6 @@ def strategy_decision(
     profit_threshold,
 ):
     signals = []
-    exit_flag = False
 
     row_time = row['time']
 
@@ -21,24 +20,21 @@ def strategy_decision(
                 "position": current_position,
                 "reason": "315PM"
             })
-            exit_flag = True
 
     # Crossover exit
     if current_position and row_time not in seen_candles_exit:
-        if current_position == 'BULL_PUT' and (row['ema_crossover'] == 'bearish' or previous_day_trend == 'bearish'):
+        if current_position == 'BULL_PUT' and row['ema_crossover'] == 'bearish':
             signals.append({
                 "action": "EXIT",
                 "position": "BULL_PUT",
                 "reason": "XOVER"
             })
-            exit_flag = True
-        elif current_position == 'BEAR_CALL' and (row['ema_crossover'] == 'bullish' or previous_day_trend == 'bullish'):
+        elif current_position == 'BEAR_CALL' and row['ema_crossover'] == 'bullish' :
             signals.append({
                 "action": "EXIT",
                 "position": "BEAR_CALL",
                 "reason": "XOVER"
             })
-            exit_flag = True
 
     # Profit exit
     if current_position and row_time not in seen_candles_exit:
@@ -48,10 +44,9 @@ def strategy_decision(
                 "position": current_position,
                 "reason": "PROFIT"
             })
-            exit_flag = True
 
     # Entry logic
-    if not current_position and row_time not in seen_candles_entry and row_time < time(14, 45):
+    if row_time not in seen_candles_entry and row_time < time(14, 45):
         if row_time == time(9, 20):
             if row['close'] > row['atr_upper'] or row['close'] < row['atr_lower']:
                 pass

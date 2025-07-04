@@ -21,8 +21,6 @@ class StrategyManager:
         self.wrapper_api = smartapi_wrapper.SmartAPIWrapper(smart_api)
 
     def take_entry_positions(self, positions,position_type=None):
-        logger.info("Event: Taking Entry")
-
         # Sort positions so that BUY orders come before SELL
         if type(positions) == type([]) :
             positions = sorted(positions, key=lambda x: x.data["order_type"] != "BUY")
