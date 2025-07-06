@@ -37,6 +37,7 @@ def run_live(connector, df):
     df['atr_lower'] = df['close_daily'] - df['ATR']
 
     df = indicators.add_ema_crossover(df, 'ema_fast', 'ema_slow')
+    df.to_csv('atr_ema_indicator.csv', index=False)
 
     current_position = None
     previous_day_trend = None
