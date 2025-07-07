@@ -83,9 +83,10 @@ def main(token, exchange):
 
                 # execute strategy
                 current_position, previous_day_trend = run_live(connector, 
+                                                                df_5min,
                                                                 current_position,
-                                                                previous_day_trend,
-                                                                df_5min)
+                                                                previous_day_trend
+                                                                )
 
             else:
                 if trading_today:
