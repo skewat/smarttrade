@@ -90,7 +90,7 @@ def run_live(connector, df, c_pos=None, prev_day_trend=None):
                 current_position = pos
                 previous_day_trend = "bullish" if pos == "BULL_PUT" else "bearish"
                 SEEN_CANDLES_ENTRY.append(row['time'])
-            elif signal["action"] == "EXIT":
+            elif signal["action"] == "EXIT" or pnl_pct > 700 :
                 pos = signal["position"]
                 reason = signal["reason"]
                 logger.info(f"EXIT: {pos} ({reason}) {row['datetime']}")

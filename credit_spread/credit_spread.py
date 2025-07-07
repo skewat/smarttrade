@@ -215,5 +215,7 @@ def monitor_pnl(connector, spread_name, target_pnl_pct=0.03):
         pnl_pct = pnl / (entry_credit * qty)
 
     logger.info(f"Spread '{spread_name}' PnL: {pnl:.2f} ({pnl_pct*100:.2f}%)")
-    return pnl_pct
+    #return pnl_pct
+    #keeping simple for now , cap the profit 
+    return round(pnl)
 
