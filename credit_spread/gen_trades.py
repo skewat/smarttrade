@@ -49,6 +49,8 @@ def wait_for_trading_hours():
 
 
 def main(token, exchange):
+    current_position = None
+    previous_day_trend = None
     connector = angelone.AngelOneConnector()
     connector.connect()
     smart_api = connector.smart_api
@@ -80,7 +82,10 @@ def main(token, exchange):
                 df_5min = core.convert_to_5min(ohlc_df)
 
                 # execute strategy
-                run_live(connector, df_5min)
+                current_position, previous_day_trend = run_live(connector, 
+                                                                current_position,
+                                                                previous_day_trend,
+                                                                df_5min)
 
             else:
                 if trading_today:

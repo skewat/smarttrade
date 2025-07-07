@@ -11,7 +11,7 @@ SEEN_CANDLES_ENTRY = []
 SEEN_CANDLES_EXIT = []
 SPREAD_NAME = None
 
-def run_live(connector, df):
+def run_live(connector, df, c_pos=None, prev_day_trend=None):
     global SEEN_CANDLES_ENTRY, SEEN_CANDLES_EXIT, SPREAD_NAME
 
     df = df.copy()
@@ -39,8 +39,8 @@ def run_live(connector, df):
     df = indicators.add_ema_crossover(df, 'ema_fast', 'ema_slow')
     df.to_csv('atr_ema_indicator.csv', index=False)
 
-    current_position = None
-    previous_day_trend = None
+    current_position = c_pos
+    previous_day_trend = prev_day_trend
 
     # Filter to today's data only
     today = pd.Timestamp.now().date()
@@ -98,6 +98,8 @@ def run_live(connector, df):
                 current_position = None
                 previous_day_trend = None
                 SEEN_CANDLES_EXIT.append(row['time'])
+
+    return current_position, previous_day_trend
 
 def on_entry(connector, position_type, dt, price):
     global SPREAD_NAME
