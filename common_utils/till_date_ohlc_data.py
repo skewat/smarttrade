@@ -160,6 +160,7 @@ def logout(smartApi):
 def get_daily_data(smartApi, symbol_token, exchange):
     """Fetch data once per day and cache it in a CSV file."""
     # If file does not exist, fetch and save
+    today = datetime.today().date()
     data_cache = f"till_yesterday_ohlc_{symbol_token}_{today}.csv"
     df = pd.DataFrame(columns=["datetime", "open", "high", "low", "close", "volume"])
     if os.path.exists(data_cache):
