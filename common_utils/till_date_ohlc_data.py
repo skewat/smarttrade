@@ -160,12 +160,24 @@ def logout(smartApi):
 def get_daily_data(smartApi, symbol_token, exchange):
     """Fetch data once per day and cache it in a CSV file."""
     # If file does not exist, fetch and save
-    #print(f"Fetching new data and saving to file: {filename}")
-    try :
-        data = fetch_data(smartApi,symbol_token, exchange)  # Your function
-        df = pd.DataFrame(data["data"], columns=["datetime", "open", "high", "low", "close", "volume"])
-    except Exception as e:
-        logger.exception(f"Failed while fetching daily data : {e}")
+    data_cache = f"till_yesterday_ohlc_{symbol_token}_{today}.csv"
+    df = pd.DataFrame(columns=["datetime", "open", "high", "low", "close", "volume"])
+    if os.path.exists(data_cache):
+        df = pd.read_csv(data_cache, parse_dates=["datetime"])
+    else :
+        for attempt in range(3):
+            try:
+                data = fetch_data(smartApi, symbol_token, exchange)
+                if data and "data" in data and data["data"]:
+                    df = pd.DataFrame(data["data"], columns=["datetime", "open", "high", "low", "close", "volume"])
+                    df.to_csv(data_cache, index=False)
+                    break  # success, exit retry loop
+                else:
+                    logger.warning(f"Attempt {attempt + 1}: fetch_data returned empty or invalid data.")
+            except Exception as e:
+                logger.exception(f"Attempt {attempt + 1}: Exception while fetching daily data: {e}")
+
+            time.sleep(1)  # optional: wait a bit before retrying
 
     return df
 

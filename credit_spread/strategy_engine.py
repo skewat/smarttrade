@@ -1,4 +1,6 @@
 from datetime import time
+from logzero import logger
+
 
 def strategy_decision(
     row,

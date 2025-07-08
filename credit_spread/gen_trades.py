@@ -67,26 +67,29 @@ def main(token, exchange):
     try:
         while True:
             now = datetime.now()
-
             if core.is_within_time_range() or config.TESTING:
-                # pull latest OHLC from your data source
-                ohlc_df = core.till_date_ohlc_data.main(smart_api, token, exchange)
-                if ohlc_df.empty:
-                    logger.warning("OHLC data unavailable. Skipping iteration.")
-                    time.sleep(30)
-                    continue
+                try :
+                    # pull latest OHLC from your data source
+                    ohlc_df = core.till_date_ohlc_data.main(smart_api, token, exchange)
+                    if ohlc_df.empty:
+                        logger.warning("OHLC data unavailable. Skipping iteration.")
+                        time.sleep(30)
+                        continue
 
-                trading_today = True
+                    trading_today = True
 
-                # resample to 5-min
-                df_5min = core.convert_to_5min(ohlc_df)
+                    # resample to 5-min
+                    df_5min = core.convert_to_5min(ohlc_df)
 
-                # execute strategy
-                current_position, previous_day_trend = run_live(connector, 
+                    # execute strategy
+                    current_position, previous_day_trend = run_live(connector, 
                                                                 df_5min,
                                                                 current_position,
                                                                 previous_day_trend
                                                                 )
+                except Exception as e:
+                    logger.warning(f"Unexpected exception : {e}")
+                    time.sleep(2) # Wait a bit and continue the business 
 
             else:
                 if trading_today:
