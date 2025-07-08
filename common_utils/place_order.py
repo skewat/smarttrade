@@ -147,7 +147,7 @@ class StrategyManager:
                 "exchange": "NFO",
                 "ordertype": "LIMIT",
                 "price": position.get("price"),
-                "producttype": "CARRYFORWARD",
+                "producttype": "INTRADAY",
                 "duration": "DAY",
                 "quantity": position.get("quantity"),
                 "ordertag":  position.get("strategy_tag")
@@ -167,7 +167,7 @@ class StrategyManager:
                 "exchange": "NFO",
                 "ordertype": "STOPLOSS_LIMIT",
                 "price": price,
-                "producttype": "CARRYFORWARD",
+                "producttype": "INTRADAY",
                 "duration": "DAY",
                 "triggerprice": position.get("price"),
                 "quantity": position.get("quantity"),
@@ -181,7 +181,7 @@ class StrategyManager:
                 "transactiontype": position.get("order_type"),
                 "exchange": "NFO",
                 "ordertype": "MARKET",
-                "producttype": "CARRYFORWARD",
+                "producttype": "INTRADAY",
                 "duration": "DAY",
                 "quantity": position.get("quantity"),
                 "ordertag": position.get("strategy_tag")
