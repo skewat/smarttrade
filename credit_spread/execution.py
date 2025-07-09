@@ -76,14 +76,6 @@ def run_live(connector, df, c_pos=None, prev_day_trend=None):
         for signal in signals:
             logger.info(f"Candletime: {row['datetime']}")
             if signal["action"] == "ENTER":
-
-                # before taking a new entry
-                if current_position:
-                    logger.info(f"{row['datetime']}: Exiting current position {current_position} before taking new entry.")
-                    on_exit(connector, current_position, row['datetime'], "!! NewEntry", row['close'])
-                    current_position = None
-                    previous_day_trend = None
-
                 pos = signal["position"]
                 logger.info(f"ENTRY: {pos} {row['datetime']}")
                 on_entry(connector, pos, row['datetime'], row['close'])
@@ -120,4 +112,3 @@ def on_exit(connector, position_type, dt, reason, price):
     spread.exit_position(connector, SPREAD_NAME, dt, reason=reason)
     logger.info(f"Exit: {SPREAD_NAME} {reason} {dt}")
     SPREAD_NAME = None
-

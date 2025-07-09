@@ -12,7 +12,7 @@ def calculate_atr(df, period=20):
     atr = tr.rolling(window=period).mean()
     return atr
 
-def add_ema_crossover(df, fast_col, slow_col):
+def __add_ema_crossover(df, fast_col, slow_col):
     df = df.copy()
     df['ema_crossover'] = None
     prev_fast = df[fast_col].shift(1)
@@ -21,5 +21,30 @@ def add_ema_crossover(df, fast_col, slow_col):
     bearish = (prev_fast > prev_slow) & (df[fast_col] < df[slow_col])
     df.loc[bullish, 'ema_crossover'] = 'bullish'
     df.loc[bearish, 'ema_crossover'] = 'bearish'
+    return df
+
+def add_ema_crossover(df, fast_col, slow_col, threshold=5):
+    df = df.copy()
+    df['ema_crossover'] = None
+
+    # Previous values
+    prev_fast = df[fast_col].shift(1)
+    prev_slow = df[slow_col].shift(1)
+
+    # Crossover conditions
+    bullish_cross = (
+        (prev_fast < prev_slow) &
+        (df[fast_col] > df[slow_col]) &
+        ((df[fast_col] - df[slow_col]).abs() > threshold)
+    )
+
+    bearish_cross = (
+        (prev_fast > prev_slow) &
+        (df[fast_col] < df[slow_col]) &
+        ((df[fast_col] - df[slow_col]).abs() > threshold)
+    )
+
+    df.loc[bullish_cross, 'ema_crossover'] = 'bullish'
+    df.loc[bearish_cross, 'ema_crossover'] = 'bearish'
     return df
 
