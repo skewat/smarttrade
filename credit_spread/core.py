@@ -131,37 +131,6 @@ def find_valid_expiry(expiries=expiries_of_year.main(2025)):
     expiry = next((datetime.strptime(e, "%d%b%y") for e in expiries if datetime.strptime(e, "%d%b%y") > dt + timedelta(days=2)), None)
     return expiry.strftime('%d%b%y').upper() if expiry else None
 
-
-def modify_limit_orders_to_market(connector, tag_to_match = None):
-    try:
-        # 1. Get all open orders
-        order_api = place_order.main(connector)
-        orders = order_api.get_order_book()
-
-        for order in orders:
-            # 2. Check for tag and order type
-            if (order.get("order_tag") == tag_to_match and
-                order.get("orderstatus") == "open" and
-                order.get("ordertype") == "LIMIT"):
-
-                # 3. Modify order to market
-                modified_order = smart_api.modifyOrder(
-                    orderid=order["orderid"],
-                    variety=order["variety"],           # e.g. 'NORMAL'
-                    tradingsymbol=order["tradingsymbol"],
-                    symboltoken=order["symboltoken"],
-                    transactiontype=order["transactiontype"],  # 'BUY' or 'SELL'
-                    exchange=order["exchange"],         # e.g. 'NSE'
-                    ordertype="MARKET",
-                    producttype=order["producttype"],   # e.g. 'INTRADAY'
-                    duration=order["duration"],         # e.g. 'DAY'
-                    quantity=order["quantity"]
-                )
-                logger.info(f"Modified Order ID {order['orderid']} to MARKET")
-
-    except Exception as e:
-        print(f"Error: {e}")
-
 def force_exit_positions(connector):
     if is_there_existing_trade():
         active_positions = get_active_positions()

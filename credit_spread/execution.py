@@ -49,7 +49,7 @@ def run_live(connector, df, c_pos=None, prev_day_trend=None):
     if df.empty:
         logger.info("No data for today. Skipping run_live execution.")
         return
-    df = df.tail(1)
+    df = df.tail(76)
 
     for idx, row in df.iterrows():
         row_dict = row.to_dict()

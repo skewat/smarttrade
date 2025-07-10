@@ -13,7 +13,6 @@ def strategy_decision(
     signals = []
 
     row_time = row['time']
-
     # 3:15 PM exit
     if row_time >= time(15, 15):
         if current_position and row_time not in seen_candles_exit:

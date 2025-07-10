@@ -132,7 +132,7 @@ class StrategyManager:
             if self._open_position(position):
                 order = self._place_order(position)
             else:
-                logger.info('There is no valid position to exit')
+                logger.warning('There is no valid position to exit')
 
     def _place_order(self, position, position_type):
         timeout = 5
@@ -230,7 +230,6 @@ def main(connector, positions = None,position_type=None ,target=0):
 
     connector.connect()
     smart_api = connector.smart_api
-
     manager = StrategyManager(smart_api)
     if position_type == 'ENTRY' :
         manager.take_entry_positions(positions)

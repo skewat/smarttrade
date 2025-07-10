@@ -8,7 +8,8 @@ import pprint
 import core
 
 
-POSITIONS_FILE = os.path.join(os.getcwd(),"positions.csv")
+today = datetime.today().date()
+POSITIONS_FILE = os.path.join(os.getcwd(),f"positions_{today}.csv")
 ARCHIVE_FILE = os.path.join(os.getcwd(),"archive_positions.csv")
 ORDERS_FILE = os.path.join(os.getcwd(),"active_orders.csv")
 
@@ -44,6 +45,7 @@ def place_order(connector, order_id, symbol, action, quantity, price):
         }
         process_order(connector, ACTIVE_ORDERS[key])
         save_active_orders()
+        logger.info(f"Placed ENTRY {action} order for {symbol} @ {price}")
     if order_id.startswith('EXIT_'):
         #Remove the order from CSV
         if ACTIVE_ORDERS[key]["action"] == 'BUY' :
@@ -52,10 +54,11 @@ def place_order(connector, order_id, symbol, action, quantity, price):
         elif ACTIVE_ORDERS[key]["action"] == 'SELL' :
             ACTIVE_ORDERS[key]["action"] = 'BUY'
 
+        ACTIVE_ORDERS[key]["position"] = 'EXIT'
         process_order(connector, ACTIVE_ORDERS[key])
         ACTIVE_ORDERS.pop(key, None)
         save_active_orders()
-    logger.info(f"Placed {action} order for {symbol} @ {price}")
+        logger.info(f"Placed EXIT {action} order for {symbol} @ {price}")
     return True
 
 def fetch_ltp(connector,symbol):
