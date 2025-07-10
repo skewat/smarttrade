@@ -42,7 +42,7 @@ def strategy_decision(
     if current_position and row_time not in seen_candles_exit:
         logger.info(f"Profit {row.get('pnl_pct', 0)}, Threshold {profit_threshold}")
         #if row.get('pnl_pct', 0) >= profit_threshold:
-        if row.get('pnl_pct', 0) >= 700 :
+        if row.get('pnl_pct', 0) >= 1200 :
             signals.append({
                 "action": "EXIT",
                 "position": current_position,

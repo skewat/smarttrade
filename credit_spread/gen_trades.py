@@ -1,4 +1,6 @@
 #! /usr/bin/python3
+import pandas as pd
+
 import os
 import sys
 import time
@@ -6,6 +8,7 @@ import signal
 from datetime import datetime, timedelta
 import logzero
 from logzero import logger
+import pprint
 
 # Project Imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -63,7 +66,6 @@ def main(token, exchange):
         logger.info("Connected to broker API.")
 
     trading_today = False
-
     try:
         while True:
             now = datetime.now()
