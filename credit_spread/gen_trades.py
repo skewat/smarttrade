@@ -79,6 +79,7 @@ def main(token, exchange):
     connector = angelone.AngelOneConnector()
     connector.connect()
     smart_api = connector.smart_api
+    prevent_multiple_instances()
 
     if not config.SIMULATE:
         signal.signal(signal.SIGINT, core.signal_handler)
