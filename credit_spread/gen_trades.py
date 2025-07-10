@@ -1,5 +1,7 @@
 #! /usr/bin/python3
 import pandas as pd
+from filelock import FileLock, Timeout
+
 
 import os
 import sys
@@ -23,6 +25,26 @@ from execution import run_live
 # Setup logger
 logzero.logfile("atr_strategy_logfile.log", maxBytes=1e6, backupCount=2)
 logzero.loglevel(config.LOG_LEVEL if hasattr(config, "LOG_LEVEL") else logzero.INFO)
+
+def prevent_multiple_instances(lock_file="/home/ckewat/options_strategy/smarttrade/credit_spread/my_script.lock", timeout=0):
+    """
+    Prevents the script from running multiple instances.
+    If another instance is already running, it exits the program.
+    Logs the current PID and PPID.
+    """
+    pid = os.getpid()
+    ppid = os.getppid()
+
+    print(f"Starting process: PID={pid}, PPID={ppid}")
+
+    lock = FileLock(lock_file, timeout=timeout)
+    try:
+        lock.acquire()
+        logger(f"Lock acquired. PID {pid} is running.")
+        return lock  # Caller can release the lock
+    except Timeout:
+        logger("Another instance is already running. Exiting.  PID {pid}")
+        sys.exit(1)
 
 
 def wait_for_trading_hours():
