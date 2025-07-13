@@ -40,10 +40,10 @@ def prevent_multiple_instances(lock_file="/home/ckewat/options_strategy/smarttra
     lock = FileLock(lock_file, timeout=timeout)
     try:
         lock.acquire()
-        logger(f"Lock acquired. PID {pid} is running.")
+        logger.info(f"Lock acquired. PID {pid} is running.")
         return lock  # Caller can release the lock
     except Timeout:
-        logger("Another instance is already running. Exiting.  PID {pid}")
+        logger.error(f"Another instance is already running. Exiting.  PID {pid}")
         sys.exit(1)
 
 
@@ -123,6 +123,7 @@ def main(token, exchange):
                     sys.exit("Exiting ..")
 
                 logger.info(f"Outside trading hours at {now.strftime('%H:%M:%S')}")
+                sys.exit(f"Exiting as {now} not in trading hrs")
                 wait_for_trading_hours()
                 continue
 
