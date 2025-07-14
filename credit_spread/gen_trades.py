@@ -119,7 +119,10 @@ def main(token, exchange):
             else:
                 if trading_today:
                     logger.info("Market closed, logging out and exiting cleanly.")
-                    connector.logout()
+                    try:
+                        connector.logout()
+                    except: 
+                        print('....')
                     sys.exit("Exiting ..")
 
                 logger.info(f"Outside trading hours at {now.strftime('%H:%M:%S')}")
