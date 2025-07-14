@@ -31,7 +31,7 @@ from common_utils import (
 def is_within_time_range():
     """Check if current time is within trading hours."""
     now = datetime.now()
-    return now.replace(hour=9, minute=18) <= now <= now.replace(hour=15, minute=15)
+    return now.replace(hour=9, minute=15) <= now <= now.replace(hour=15, minute=15)
 
 def signal_handler(sig, frame):
     """Handle SIGINT (Ctrl+C) to exit gracefully."""
