@@ -9,9 +9,9 @@ import core
 
 
 today = datetime.today().date()
-POSITIONS_FILE = os.path.join(os.getcwd(),f"positions_{today}.csv")
-ARCHIVE_FILE = os.path.join(os.getcwd(),"archive_positions.csv")
-ORDERS_FILE = os.path.join(os.getcwd(),"active_orders.csv")
+POSITIONS_FILE = f"/home/ckewat/options_strategy/smarttrade/credit_spread/positions_{today}.csv"
+ARCHIVE_FILE = "/home/ckewat/options_strategy/smarttrade/credit_spread/archive_positions.csv"
+ORDERS_FILE = "/home/ckewat/options_strategy/smarttrade/credit_spread/active_orders.csv"
 
 # Load active orders from file if present
 if os.path.exists(ORDERS_FILE):

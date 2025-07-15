@@ -23,7 +23,7 @@ from common_utils import angelone
 from execution import run_live
 
 # Setup logger
-logzero.logfile("atr_strategy_logfile.log", maxBytes=1e6, backupCount=2)
+logzero.logfile("/home/ckewat/options_strategy/smarttrade/credit_spread/atr_strategy_logfile.log", maxBytes=1e6, backupCount=2)
 logzero.loglevel(config.LOG_LEVEL if hasattr(config, "LOG_LEVEL") else logzero.INFO)
 
 def prevent_multiple_instances(lock_file="/home/ckewat/options_strategy/smarttrade/credit_spread/my_script.lock", timeout=0):
@@ -74,12 +74,12 @@ def wait_for_trading_hours():
 
 
 def main(token, exchange):
+    prevent_multiple_instances()
     current_position = None
     previous_day_trend = None
     connector = angelone.AngelOneConnector()
     connector.connect()
     smart_api = connector.smart_api
-    prevent_multiple_instances()
 
     if not config.SIMULATE:
         signal.signal(signal.SIGINT, core.signal_handler)
@@ -120,9 +120,10 @@ def main(token, exchange):
                 if trading_today:
                     logger.info("Market closed, logging out and exiting cleanly.")
                     try:
+                        profile = smart_api.getProfile()
                         connector.logout()
                     except: 
-                        print('....')
+                        print('....ignore any exception while closing..')
                     sys.exit("Exiting ..")
 
                 logger.info(f"Outside trading hours at {now.strftime('%H:%M:%S')}")
