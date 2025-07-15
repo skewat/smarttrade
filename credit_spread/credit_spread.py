@@ -127,7 +127,7 @@ def record_position(spread_name, buy_symbol, buy_price, sell_symbol, sell_price,
     #        df = new_entry_df
     #    else:
     #        df = pd.concat([df, new_entry_df], ignore_index=True)
-
+    logger.info(f"Entry: new Position {new_entry_df}, entry taken" )
     save_positions(new_entry_df, dt)
 
 def generate_credit_spread(connector, strike_price, expiry_str, direction, spread_width=200):
@@ -177,7 +177,7 @@ def exit_position(connector, spread_name, dt, reason="Signal"):
 
     df = df[df['spread'] != spread_name]
     save_positions(df, dt)
-    logger.info(f"Position '{spread_name}' exited due to {reason}.")
+    logger.info(f"EXIT:Position '{spread_name}' {df} exited due to {reason}.")
 
 def monitor_pnl(connector, spread_name, target_pnl_pct=0.03):
     position_book = load_positions()

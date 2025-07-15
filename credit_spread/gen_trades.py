@@ -35,7 +35,7 @@ def prevent_multiple_instances(lock_file="/home/ckewat/options_strategy/smarttra
     pid = os.getpid()
     ppid = os.getppid()
 
-    print(f"Starting process: PID={pid}, PPID={ppid}")
+    logger.info(f"Starting process: PID={pid}, PPID={ppid}")
 
     lock = FileLock(lock_file, timeout=timeout)
     try:
