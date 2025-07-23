@@ -1,6 +1,8 @@
 #! /usr/bin/python3
 import pandas as pd
 from filelock import FileLock, Timeout
+from functools import wraps
+
 
 
 import os
@@ -11,6 +13,8 @@ from datetime import datetime, timedelta
 import logzero
 from logzero import logger
 import pprint
+from functools import wraps
+from log_utils import log_function_entry_exit
 
 # Project Imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,11 +25,15 @@ import config
 import core
 from common_utils import angelone
 from execution import run_live
+from log_utils import log_function_entry_exit
+
 
 # Setup logger
-logzero.logfile("/home/ckewat/options_strategy/smarttrade/credit_spread/atr_strategy_logfile.log", maxBytes=1e6, backupCount=2)
+today = datetime.today().date()
+logzero.logfile(f"/home/ckewat/options_strategy/smarttrade/credit_spread/atr_strategy_logfile_{today}.log", maxBytes=1e6, backupCount=2)
 logzero.loglevel(config.LOG_LEVEL if hasattr(config, "LOG_LEVEL") else logzero.INFO)
 
+@log_function_entry_exit
 def prevent_multiple_instances(lock_file="/home/ckewat/options_strategy/smarttrade/credit_spread/my_script.lock", timeout=0):
     """
     Prevents the script from running multiple instances.
@@ -47,6 +55,7 @@ def prevent_multiple_instances(lock_file="/home/ckewat/options_strategy/smarttra
         sys.exit(1)
 
 
+@log_function_entry_exit
 def wait_for_trading_hours():
     """
     Sleep outside trading hours:
@@ -73,6 +82,7 @@ def wait_for_trading_hours():
         logger.info("Within trading hours. Proceeding...")
 
 
+@log_function_entry_exit
 def main(token, exchange):
     prevent_multiple_instances()
     current_position = None
@@ -113,8 +123,8 @@ def main(token, exchange):
                                                                 previous_day_trend
                                                                 )
                 except Exception as e:
-                    logger.warning(f"Unexpected exception : {e}")
-                    time.sleep(2) # Wait a bit and continue the business 
+                    logger.exception("Unexpected exception")
+                    time.sleep(1) # Wait a bit and continue the business 
 
             else:
                 if trading_today:

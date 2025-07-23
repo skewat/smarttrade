@@ -8,6 +8,8 @@ import time
 import pandas as pd
 from logzero import logger
 import signal
+from functools import wraps
+from log_utils import log_function_entry_exit
 
 # Project Imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -28,16 +30,19 @@ from common_utils import (
 # UTILITY FUNCTIONS
 # ========================================
 
+@log_function_entry_exit
 def is_within_time_range():
     """Check if current time is within trading hours."""
     now = datetime.now()
     return now.replace(hour=9, minute=15) <= now <= now.replace(hour=15, minute=15)
 
+@log_function_entry_exit
 def signal_handler(sig, frame):
     """Handle SIGINT (Ctrl+C) to exit gracefully."""
     logger.info("\nExiting gracefully...")
     sys.exit(0)
 
+@log_function_entry_exit
 def write_positions_to_csv(positions, filename, append):
     """Write positions to CSV."""
     if not positions:
@@ -55,6 +60,7 @@ def write_positions_to_csv(positions, filename, append):
             writer.writerow(position.data)
 
 
+@log_function_entry_exit
 def convert_to_5min(df):
 
     # Assuming you've already loaded the DataFrame (df)
@@ -92,6 +98,7 @@ def convert_to_5min(df):
 
 _previous_ltp: dict[str, float] = {}
 
+@log_function_entry_exit
 def get_ltp( connector, token: str = '99926000', symbol: str = 'NIFTY', exchange: str = 'NSE'):
     """
     Fetch the latest traded price (LTP) from broker API,
@@ -120,17 +127,20 @@ def get_ltp( connector, token: str = '99926000', symbol: str = 'NIFTY', exchange
         return _previous_ltp.get(key)
 
 
+@log_function_entry_exit
 def get_token(name):
     token = symboltoken.get_single_symbol_token(name, 'OPTION')
     return token 
 
 
+@log_function_entry_exit
 def find_valid_expiry(expiries=expiries_of_year.main(2025)):
     """Pick the first expiry > 2 days from today."""
     dt = datetime.today()
     expiry = next((datetime.strptime(e, "%d%b%y") for e in expiries if datetime.strptime(e, "%d%b%y") > dt + timedelta(days=2)), None)
     return expiry.strftime('%d%b%y').upper() if expiry else None
 
+@log_function_entry_exit
 def force_exit_positions(connector):
     if is_there_existing_trade():
         active_positions = get_active_positions()
@@ -138,6 +148,7 @@ def force_exit_positions(connector):
         place_order.main(connector, exit_positions, 'EXIT')
         logger.info('Exited by force.....')
 
+@log_function_entry_exit
 def decode_option_symbol(symbol):
     """
     Decodes an option symbol like NIFTY03JUL2525800CE
@@ -171,6 +182,7 @@ def decode_option_symbol(symbol):
 # ========================================
 # Place Order
 # ========================================
+@log_function_entry_exit
 def process_order(connector, trade_info, lots=1):
     """Process entry for single option buying."""
     STRATEGY_TAG = config.STRATEGY

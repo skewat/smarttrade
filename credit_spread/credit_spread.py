@@ -6,6 +6,8 @@ import os
 import sys
 import pprint
 import core
+from functools import wraps
+from log_utils import log_function_entry_exit
 
 
 today = datetime.today().date()
@@ -20,13 +22,16 @@ if os.path.exists(ORDERS_FILE):
 else:
     ACTIVE_ORDERS = {}
 
+@log_function_entry_exit
 def save_active_orders():
     pd.DataFrame.from_dict(ACTIVE_ORDERS, orient='index').to_csv(ORDERS_FILE)
 
 
+@log_function_entry_exit
 def process_order(connector, order):
     core.process_order(connector, order, lots=1)
 
+@log_function_entry_exit
 def place_order(connector, order_id, symbol, action, quantity, price):
     key = f"{symbol}"
     if key in ACTIVE_ORDERS and order_id.startswith('ENTRY_'):
@@ -61,16 +66,19 @@ def place_order(connector, order_id, symbol, action, quantity, price):
         logger.info(f"Placed EXIT {action} order for {symbol} @ {price}")
     return True
 
+@log_function_entry_exit
 def fetch_ltp(connector,symbol):
     token = core.get_token(symbol)
     ltp = core.get_ltp(connector, token, symbol, 'NFO')
     return ltp
 
+@log_function_entry_exit
 def load_positions():
     if os.path.exists(POSITIONS_FILE):
         return pd.read_csv(POSITIONS_FILE)
     return pd.DataFrame(columns=["spread", "buy_symbol", "buy_price", "buy_qty", "sell_symbol", "sell_price", "sell_qty", "entry_time"])
 
+@log_function_entry_exit
 def save_positions(df, dt):
     """
     Save the active positions to positions.csv
@@ -80,6 +88,7 @@ def save_positions(df, dt):
     print('Save DF .. position;',df)
     df.to_csv(POSITIONS_FILE, index=False)
 
+@log_function_entry_exit
 def archive_positions(positions_to_archive, dt , reason="CLOSED"):
     """
     Archive exited positions with timestamp and reason
@@ -109,6 +118,7 @@ def archive_positions(positions_to_archive, dt , reason="CLOSED"):
     logger.debug(f"✅ Archived {len(positions_to_archive)} positions to positions_archive.csv")
 
 
+@log_function_entry_exit
 def record_position(spread_name, buy_symbol, buy_price, sell_symbol, sell_price, quantity, dt):
     df = load_positions()
     new_entry = {
@@ -130,6 +140,7 @@ def record_position(spread_name, buy_symbol, buy_price, sell_symbol, sell_price,
     logger.info(f"Entry: new Position {new_entry_df}, entry taken" )
     save_positions(new_entry_df, dt)
 
+@log_function_entry_exit
 def generate_credit_spread(connector, strike_price, expiry_str, direction, spread_width=200):
     if direction.lower() == "bullish":
         sell = f"NIFTY{expiry_str}{strike_price}PE"
@@ -143,6 +154,7 @@ def generate_credit_spread(connector, strike_price, expiry_str, direction, sprea
         raise ValueError("Direction must be 'bullish' or 'bearish'")
     return spread_type, buy, sell
 
+@log_function_entry_exit
 def take_spread_position(connector, spread_name, buy_symbol, sell_symbol, dt, quantity=75):
     df = load_positions()
     if spread_name in df['spread'].values:
@@ -160,6 +172,7 @@ def take_spread_position(connector, spread_name, buy_symbol, sell_symbol, dt, qu
     record_position(spread_name, buy_symbol, buy_price, sell_symbol, sell_price, quantity, dt)
     logger.info(f"Position '{spread_name}' recorded.")
 
+@log_function_entry_exit
 def exit_position(connector, spread_name, dt, reason="Signal"):
     df = load_positions()
     row = df[df['spread'] == spread_name]
@@ -179,6 +192,7 @@ def exit_position(connector, spread_name, dt, reason="Signal"):
     save_positions(df, dt)
     logger.info(f"EXIT:Position '{spread_name}' {df} exited due to {reason}.")
 
+@log_function_entry_exit
 def monitor_pnl(connector, spread_name, target_pnl_pct=0.03):
     position_book = load_positions()
     pnl_pct = 0

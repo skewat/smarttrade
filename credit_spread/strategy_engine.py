@@ -1,7 +1,10 @@
 from datetime import time
 from logzero import logger
+from functools import wraps
+from log_utils import log_function_entry_exit
 
 
+@log_function_entry_exit
 def strategy_decision(
     row,
     current_position,

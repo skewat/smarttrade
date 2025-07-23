@@ -5,12 +5,15 @@ from logzero import logger
 import core
 import sys
 import credit_spread as spread
+from functools import wraps
+from log_utils import log_function_entry_exit
 
 # global state
 SEEN_CANDLES_ENTRY = []
 SEEN_CANDLES_EXIT = []
 SPREAD_NAME = None
 
+@log_function_entry_exit
 def run_live(connector, df, c_pos=None, prev_day_trend=None):
     global SEEN_CANDLES_ENTRY, SEEN_CANDLES_EXIT, SPREAD_NAME
 
@@ -48,7 +51,7 @@ def run_live(connector, df, c_pos=None, prev_day_trend=None):
 
     if df.empty:
         logger.info("No data for today. Skipping run_live execution.")
-        return
+        return current_position, previous_day_trend
     df = df.tail(1)
     for idx, row in df.iterrows():
         row_dict = row.to_dict()
@@ -89,9 +92,10 @@ def run_live(connector, df, c_pos=None, prev_day_trend=None):
                 current_position = None
                 previous_day_trend = None
                 SEEN_CANDLES_EXIT.append(row['time'])
-
+    print('-'*80)
     return current_position, previous_day_trend
 
+@log_function_entry_exit
 def on_entry(connector, position_type, dt, price):
     global SPREAD_NAME
     spot_ltp = core.get_ltp(connector, '99926000', 'NIFTY', 'NSE')
@@ -106,6 +110,7 @@ def on_entry(connector, position_type, dt, price):
     logger.info(f"Entry: {spread_name} {buy_symbol} {buy_symbol} {dt}")
 
 
+@log_function_entry_exit
 def on_exit(connector, position_type, dt, reason, price):
     global SPREAD_NAME
     spread.exit_position(connector, SPREAD_NAME, dt, reason=reason)

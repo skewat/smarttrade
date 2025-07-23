@@ -1,9 +1,13 @@
 import numpy as np
 import pandas as pd
+from functools import wraps
+from log_utils import log_function_entry_exit
 
+@log_function_entry_exit
 def calculate_ema(series, period):
     return series.ewm(span=period, adjust=False).mean()
 
+@log_function_entry_exit
 def calculate_atr(df, period=20):
     high_low = df['high'] - df['low']
     high_close = np.abs(df['high'] - df['close'].shift())
@@ -12,6 +16,7 @@ def calculate_atr(df, period=20):
     atr = tr.rolling(window=period).mean()
     return atr
 
+@log_function_entry_exit
 def __add_ema_crossover(df, fast_col, slow_col):
     df = df.copy()
     df['ema_crossover'] = None
@@ -23,6 +28,7 @@ def __add_ema_crossover(df, fast_col, slow_col):
     df.loc[bearish, 'ema_crossover'] = 'bearish'
     return df
 
+@log_function_entry_exit
 def add_ema_crossover(df, fast_col, slow_col, threshold=5):
     df = df.copy()
     df['ema_crossover'] = None
