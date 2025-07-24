@@ -12,8 +12,9 @@ SIMULATE = False
 LOTSIZE = 75
 STRATEGY = 'ATR_CR_SPREAD'
 
-LIVE = True      # Only during office hours of market
-TESTING = True # It allows LIVE beyond office hours - test end to end flow ( order placements )
+LIVE = True       # Only during office hours of market
+TESTING = False   # It allows LIVE beyond office hours - test end to end flow ( order placements )
+#TESTING = True # It allows LIVE beyond office hours - test end to end flow ( order placements )
 LOG_LEVEL =  logzero.INFO
 
 today = datetime.today().date()

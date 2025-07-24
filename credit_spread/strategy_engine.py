@@ -54,8 +54,16 @@ def strategy_decision(
     # Entry logic
     if row_time not in seen_candles_entry and row_time < time(14, 45):
         if row_time == time(9, 20):
-            if row['close'] > row['atr_upper'] or row['close'] < row['atr_lower']:
-                pass
+            if row['high'] > row['close_daily'] + row['ATR']*0.85 :
+                signals.append({
+                    "action": "ENTER",
+                    "position": "BEAR_CALL"
+                })
+            elif row['low'] <  row['close_daily'] - row['ATR']*0.85 :
+                signals.append({
+                    "action": "ENTER",
+                    "position": "BULL_PUT"
+                })
             else:
                 if row['ema_fast'] > row['ema_slow']:
                     signals.append({
@@ -68,7 +76,17 @@ def strategy_decision(
                         "position": "BEAR_CALL"
                     })
         else:
-            if row['ema_crossover'] == 'bullish':
+            if row['high'] > row['close_daily'] + row['ATR']*0.95 :
+                signals.append({
+                    "action": "ENTER",
+                    "position": "BEAR_CALL"
+                })
+            elif row['low'] <  row['close_daily'] - row['ATR']*0.95 :
+                signals.append({
+                    "action": "ENTER",
+                    "position": "BULL_PUT"
+                })
+            elif row['ema_crossover'] == 'bullish':
                 signals.append({
                     "action": "ENTER",
                     "position": "BULL_PUT"
