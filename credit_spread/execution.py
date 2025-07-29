@@ -18,20 +18,21 @@ def run_live(connector, df, c_pos=None, prev_day_trend=None):
     global SEEN_CANDLES_ENTRY, SEEN_CANDLES_EXIT, SPREAD_NAME
 
     df = df.copy()
-    df['ema_fast'] = indicators.calculate_ema(df['close'], 3)
-    df['ema_slow'] = indicators.calculate_ema(df['close'], 20)
-
+    df['ema_fast'] = indicators.calculate_ema(df['close'], 3).round(2)
+    df['ema_slow'] = indicators.calculate_ema(df['close'], 20).round(2)
     daily = df.resample('1D', on='datetime').agg({
         'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
     }).dropna()
-    daily['ATR'] = indicators.calculate_atr(daily)
+    daily['ATR'] = indicators.calculate_atr(daily).round(2)
     daily.index = daily.index.date
 
     df['date'] = df['datetime'].dt.date
     df['time'] = df['datetime'].dt.time
+    daily_shifted = daily[['ATR', 'close']].shift(1)
 
+    print(daily_shifted[['ATR', 'close']])
     df = df.merge(
-        daily[['ATR', 'close']],
+        daily_shifted[['ATR', 'close']],
         left_on='date', right_index=True,
         suffixes=('', '_daily')
     )
@@ -92,7 +93,6 @@ def run_live(connector, df, c_pos=None, prev_day_trend=None):
                 current_position = None
                 previous_day_trend = None
                 SEEN_CANDLES_EXIT.append(row['time'])
-    print('-'*80)
     return current_position, previous_day_trend
 
 @log_function_entry_exit
