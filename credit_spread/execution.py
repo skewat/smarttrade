@@ -5,6 +5,7 @@ from logzero import logger
 import core
 import sys
 import credit_spread as spread
+import numpy as np
 from functools import wraps
 from log_utils import log_function_entry_exit
 
@@ -30,17 +31,17 @@ def run_live(connector, df, c_pos=None, prev_day_trend=None):
     df['time'] = df['datetime'].dt.time
     daily_shifted = daily[['ATR', 'close']].shift(1)
 
-    print(daily_shifted[['ATR', 'close']])
     df = df.merge(
         daily_shifted[['ATR', 'close']],
         left_on='date', right_index=True,
         suffixes=('', '_daily')
     )
 
-    df['atr_upper'] = df['close_daily'] + df['ATR']
-    df['atr_lower'] = df['close_daily'] - df['ATR']
+    df['atr_upper'] = df['close_daily'].round(0) + df['ATR']
+    df['atr_lower'] = df['close_daily'].round(0) - df['ATR']
 
     df = indicators.add_ema_crossover(df, 'ema_fast', 'ema_slow')
+    df['current_trend'] = df['ema_crossover'].replace({None: np.nan}).ffill()
     df.to_csv('/home/ckewat/options_strategy/smarttrade/credit_spread/atr_ema_indicator.csv', index=False)
 
     current_position = c_pos

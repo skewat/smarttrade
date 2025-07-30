@@ -8,13 +8,14 @@ def calculate_ema(series, period):
     return series.ewm(span=period, adjust=False).mean()
 
 @log_function_entry_exit
-def calculate_atr(df, period=20):
+def calculate_atr(df, period=18):
     high_low = df['high'] - df['low']
     high_close = np.abs(df['high'] - df['close'].shift())
     low_close = np.abs(df['low'] - df['close'].shift())
     tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
     atr = tr.rolling(window=period).mean()
-    return atr
+
+    return atr.round(0)
 
 @log_function_entry_exit
 def __add_ema_crossover(df, fast_col, slow_col):
