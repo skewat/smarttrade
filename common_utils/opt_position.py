@@ -31,7 +31,7 @@ import logging
 from datetime import datetime, timedelta
 import pprint 
 
-from login_details import *
+#from login_details import *
 
 # Set print display preferance
 pd.set_option('display.max_rows',None)

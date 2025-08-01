@@ -20,13 +20,15 @@ sys.path.append(base_path)
 import config
 import core
 from common_utils import angelone
-from execution import run_live
+from common_utils import symboltoken
+from symbols import symbol_list
+#from execution import run_live
 
 # Setup logger
-logzero.logfile("/home/ckewat/options_strategy/smarttrade/credit_spread/atr_strategy_logfile.log", maxBytes=1e6, backupCount=2)
+logzero.logfile("atr_strategy_logfile.log", maxBytes=1e6, backupCount=2)
 logzero.loglevel(config.LOG_LEVEL if hasattr(config, "LOG_LEVEL") else logzero.INFO)
 
-def prevent_multiple_instances(lock_file="/home/ckewat/options_strategy/smarttrade/credit_spread/my_script.lock", timeout=0):
+def prevent_multiple_instances(lock_file="my_script.lock", timeout=0):
     """
     Prevents the script from running multiple instances.
     If another instance is already running, it exits the program.
@@ -96,25 +98,17 @@ def main(token, exchange):
                 try :
                     # pull latest OHLC from your data source
                     ohlc_df = core.till_date_ohlc_data.main(smart_api, token, exchange)
+                    print(f"OHLC Data: {ohlc_df.tail(20)}"
+                          )
+                    sys.exit('='*80)
                     if ohlc_df.empty:
                         logger.warning("OHLC data unavailable. Skipping iteration.")
                         time.sleep(30)
                         continue
 
-                    trading_today = True
-
-                    # resample to 5-min
-                    df_5min = core.convert_to_5min(ohlc_df)
-
-                    # execute strategy
-                    current_position, previous_day_trend = run_live(connector, 
-                                                                df_5min,
-                                                                current_position,
-                                                                previous_day_trend
-                                                                )
                 except Exception as e:
                     logger.warning(f"Unexpected exception : {e}")
-                    time.sleep(2) # Wait a bit and continue the business 
+                    datetime.time.sleep(2) # Wait a bit and continue the business 
 
             else:
                 if trading_today:
@@ -145,4 +139,9 @@ def main(token, exchange):
 
 
 if __name__ == "__main__":
+    for symbol in symbol_list:
+        print(f"Processing symbol: {symbol}")
+        token = symboltoken.get_single_symbol_token(symbol, 'EQ')
+        print(f"Token for {symbol}: {token}")
+    sys.exit(token)
     main("99926000", "NSE")

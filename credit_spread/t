@@ -1,0 +1,3 @@
+core.py:        for position in positions:
+execution.py:    for idx, row in df.iterrows():
+execution.py:        for signal in signals:

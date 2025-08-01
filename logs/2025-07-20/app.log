@@ -1,0 +1,105 @@
+[E 250720 14:31:56 till_date_ohlc_data:179] Attempt 1: Exception while fetching daily data: name 'last_n_days' is not defined
+    Traceback (most recent call last):
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 171, in get_daily_data
+        data = fetch_data(smartApi, symbol_token, exchange)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 133, in fetch_data
+        to_date, from_date = get_date_range()
+                             ^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 120, in get_date_range
+        date1, date2 = get_two_dates()
+                       ^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 108, in get_two_dates
+        for _ in range(last_n_days):
+                       ^^^^^^^^^^^
+    NameError: name 'last_n_days' is not defined. Did you mean: 'last_n_day'?
+[E 250720 14:32:00 till_date_ohlc_data:179] Attempt 1: Exception while fetching daily data: name 'last_n_days' is not defined
+    Traceback (most recent call last):
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 171, in get_daily_data
+        data = fetch_data(smartApi, symbol_token, exchange)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 133, in fetch_data
+        to_date, from_date = get_date_range()
+                             ^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 120, in get_date_range
+        date1, date2 = get_two_dates()
+                       ^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 108, in get_two_dates
+        for _ in range(last_n_days):
+                       ^^^^^^^^^^^
+    NameError: name 'last_n_days' is not defined. Did you mean: 'last_n_day'?
+[E 250720 14:33:00 till_date_ohlc_data:179] Attempt 1: Exception while fetching daily data: name 'last_n_days' is not defined
+    Traceback (most recent call last):
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 171, in get_daily_data
+        data = fetch_data(smartApi, symbol_token, exchange)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 133, in fetch_data
+        to_date, from_date = get_date_range()
+                             ^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 120, in get_date_range
+        date1, date2 = get_two_dates()
+                       ^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 108, in get_two_dates
+        for _ in range(last_n_days):
+                       ^^^^^^^^^^^
+    NameError: name 'last_n_days' is not defined. Did you mean: 'last_n_day'?
+[E 250720 14:34:00 till_date_ohlc_data:179] Attempt 1: Exception while fetching daily data: name 'last_n_days' is not defined
+    Traceback (most recent call last):
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 171, in get_daily_data
+        data = fetch_data(smartApi, symbol_token, exchange)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 133, in fetch_data
+        to_date, from_date = get_date_range()
+                             ^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 120, in get_date_range
+        date1, date2 = get_two_dates()
+                       ^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 108, in get_two_dates
+        for _ in range(last_n_days):
+                       ^^^^^^^^^^^
+    NameError: name 'last_n_days' is not defined. Did you mean: 'last_n_day'?
+[E 250720 14:35:00 till_date_ohlc_data:179] Attempt 1: Exception while fetching daily data: name 'last_n_days' is not defined
+    Traceback (most recent call last):
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 171, in get_daily_data
+        data = fetch_data(smartApi, symbol_token, exchange)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 133, in fetch_data
+        to_date, from_date = get_date_range()
+                             ^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 120, in get_date_range
+        date1, date2 = get_two_dates()
+                       ^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 108, in get_two_dates
+        for _ in range(last_n_days):
+                       ^^^^^^^^^^^
+    NameError: name 'last_n_days' is not defined. Did you mean: 'last_n_day'?
+[E 250720 14:36:00 till_date_ohlc_data:179] Attempt 1: Exception while fetching daily data: name 'last_n_days' is not defined
+    Traceback (most recent call last):
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 171, in get_daily_data
+        data = fetch_data(smartApi, symbol_token, exchange)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 133, in fetch_data
+        to_date, from_date = get_date_range()
+                             ^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 120, in get_date_range
+        date1, date2 = get_two_dates()
+                       ^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 108, in get_two_dates
+        for _ in range(last_n_days):
+                       ^^^^^^^^^^^
+    NameError: name 'last_n_days' is not defined. Did you mean: 'last_n_day'?
+[E 250720 14:37:00 till_date_ohlc_data:179] Attempt 1: Exception while fetching daily data: name 'last_n_days' is not defined
+    Traceback (most recent call last):
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 171, in get_daily_data
+        data = fetch_data(smartApi, symbol_token, exchange)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 133, in fetch_data
+        to_date, from_date = get_date_range()
+                             ^^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 120, in get_date_range
+        date1, date2 = get_two_dates()
+                       ^^^^^^^^^^^^^^^
+      File "c:\Users\SURYAKANT\PycharmProjects\kalman\github\smarttrade\common_utils\till_date_ohlc_data.py", line 108, in get_two_dates
+        for _ in range(last_n_days):
+                       ^^^^^^^^^^^
+    NameError: name 'last_n_days' is not defined. Did you mean: 'last_n_day'?

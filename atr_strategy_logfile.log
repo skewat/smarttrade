@@ -1,0 +1,12 @@
+[I 250720 14:31:53 screen_momentum:38] Starting process: PID=15964, PPID=5260
+[I 250720 14:31:53 screen_momentum:43] Lock acquired. PID 15964 is running.
+[I 250720 14:31:53 angelone:18] Angelone connection request.... 
+[I 250720 14:31:53 smartConnect:121] in pool
+[I 250720 14:39:18 screen_momentum:38] Starting process: PID=22988, PPID=1404
+[I 250720 14:39:18 screen_momentum:43] Lock acquired. PID 22988 is running.
+[I 250720 14:39:18 angelone:18] Angelone connection request.... 
+[I 250720 14:39:18 smartConnect:121] in pool
+[I 250720 14:42:48 screen_momentum:38] Starting process: PID=19388, PPID=1404
+[I 250720 14:42:48 screen_momentum:43] Lock acquired. PID 19388 is running.
+[I 250720 14:42:48 angelone:18] Angelone connection request.... 
+[I 250720 14:42:48 smartConnect:121] in pool

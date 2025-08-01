@@ -51,8 +51,10 @@ def write_positions_to_csv(positions, filename, append):
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         if write_header:
             writer.writeheader()
+        logger.debug("Writing positions..")
         for position in positions:
             writer.writerow(position.data)
+        logger.debug("Completed writing positions..")
 
 
 def convert_to_5min(df):

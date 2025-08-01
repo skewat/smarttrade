@@ -7,7 +7,7 @@ import pyotp
 import sys,os
 import logging
 from datetime import datetime, time, timedelta
-from login_details import *
+#from login_details import *
 
 from common_utils import holidays
 
@@ -94,7 +94,7 @@ def get_previous_working_day(ref_date):
             continue
         return ref_date
 
-def get_two_dates():
+def get_two_dates(last_n_days=30):
     """
     Get two valid trading dates for historical data download.
 
@@ -105,7 +105,7 @@ def get_two_dates():
     latest_working_day = get_previous_working_day(today)
 
     second_working_day = latest_working_day
-    for _ in range(30):
+    for _ in range(last_n_days):
         second_working_day = get_previous_working_day(second_working_day)
 
     return latest_working_day.strftime('%Y-%m-%d'), second_working_day.strftime('%Y-%m-%d')

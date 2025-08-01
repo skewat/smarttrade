@@ -39,17 +39,25 @@ def load_json_data(filename):
         return None
 
 def get_single_symbol_token(name, symbol_type):
+    print('+'*80)
     if symbol_type == 'OPTION' :
         match = re.match(r"([A-Z]+)(\d{2}[A-Z]{3}\d{2})(\d+)(CE|PE)", name)
-    if match:
-        symbol, expiry_raw, strike_price, option_type = match.groups()
-        expiry = datetime.strptime(expiry_raw, "%d%b%y").date()
+        if match:
+            symbol, expiry_raw, strike_price, option_type = match.groups()
+            expiry = datetime.strptime(expiry_raw, "%d%b%y").date()
+            data = main()
+            for i in data:
+                if i['exch_seg'] == 'NFO' and  i['symbol'] == name:
+                    if i['symbol'] == name:
+                        atm_token = i['token']
+                        return atm_token
+    elif symbol_type == 'EQ' :
         data = main()
+        name = f"{name}-EQ"
         for i in data:
-            if i['exch_seg'] == 'NFO' and  i['symbol'] == name:
-                if i['symbol'] == name:
-                    atm_token = i['token']
-                    return atm_token
+            if i['exch_seg'] == 'NSE' and  i['symbol'] == name:
+                    token = i['token']
+                    return token
     else :
         print(f"Invalid symbol {name}")
 

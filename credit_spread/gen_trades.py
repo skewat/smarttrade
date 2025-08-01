@@ -113,7 +113,7 @@ def main(token, exchange):
                                                                 previous_day_trend
                                                                 )
                 except Exception as e:
-                    logger.warning(f"Unexpected exception : {e}")
+                    logger.exception(f"Unexpected exception : {e}")
                     time.sleep(2) # Wait a bit and continue the business 
 
             else:
