@@ -126,7 +126,8 @@ class StrategyManager:
         logger.info("Event: Exiting Positions")
 
         # Sort positions so that BUY orders come before SELL
-        if isinstance(positions, OptionPosition):
+        #if isinstance(positions, OptionPosition):
+        if not type(positions) == type([]) :
             positions = [positions]
 
         positions = sorted(positions, key=lambda x: x.data["order_type"] != "BUY")
