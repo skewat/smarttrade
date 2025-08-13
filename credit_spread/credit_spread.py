@@ -17,8 +17,12 @@ ORDERS_FILE = "/home/ckewat/options_strategy/smarttrade/credit_spread/active_ord
 
 # Load active orders from file if present
 if os.path.exists(ORDERS_FILE):
-    ACTIVE_ORDERS = pd.read_csv(ORDERS_FILE, index_col=0).to_dict(orient='index')
-    logger.info("ACTIVE_ORDERS loaded from file.")
+    df = pd.read_csv(ORDERS_FILE, index_col=0)
+    # Filter out old orders from previous days
+    today_str = datetime.today().strftime("%Y-%m-%d")
+    df = df[df['timestamp'].str.startswith(today_str, na=False)]
+    ACTIVE_ORDERS = df.to_dict(orient='index')
+    logger.info(f"ACTIVE_ORDERS loaded from file '{ORDERS_FILE}'. Found {len(ACTIVE_ORDERS)} active orders for today.")
 else:
     ACTIVE_ORDERS = {}
 
@@ -33,7 +37,8 @@ def process_order(connector, order):
 
 @log_function_entry_exit
 def place_order(connector, order_id, symbol, action, quantity, price):
-    key = f"{symbol}"
+    today_str = datetime.today().strftime("%Y%m%d")
+    key = f"{symbol}_{today_str}"
     if key in ACTIVE_ORDERS and order_id.startswith('ENTRY_'):
         logger.warning(f"{action} Order {order_id} already active. Skipping duplicate.")
         return False
