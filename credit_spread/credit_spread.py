@@ -17,12 +17,20 @@ ORDERS_FILE = "/home/ckewat/options_strategy/smarttrade/credit_spread/active_ord
 
 # Load active orders from file if present
 if os.path.exists(ORDERS_FILE):
-    df = pd.read_csv(ORDERS_FILE, index_col=0)
-    # Filter out old orders from previous days
-    today_str = datetime.today().strftime("%Y-%m-%d")
-    df = df[df['timestamp'].str.startswith(today_str, na=False)]
-    ACTIVE_ORDERS = df.to_dict(orient='index')
-    logger.info(f"ACTIVE_ORDERS loaded from file '{ORDERS_FILE}'. Found {len(ACTIVE_ORDERS)} active orders for today.")
+    try:
+        df = pd.read_csv(ORDERS_FILE, index_col=0)
+        if df.empty or df.columns.empty:
+            logger.warning(f"Empty or invalid CSV file: {ORDERS_FILE}")
+            ACTIVE_ORDERS = {}
+        else:
+            # Filter out old orders from previous days
+            today_str = datetime.today().strftime("%Y-%m-%d")
+            df = df[df['timestamp'].str.startswith(today_str, na=False)]
+            ACTIVE_ORDERS = df.to_dict(orient='index')
+            logger.info(f"ACTIVE_ORDERS loaded from file '{ORDERS_FILE}'. Found {len(ACTIVE_ORDERS)} active orders for today.")
+    except pd.errors.EmptyDataError:
+        logger.warning(f"Empty CSV file: {ORDERS_FILE}")
+        ACTIVE_ORDERS = {}
 else:
     ACTIVE_ORDERS = {}
 
