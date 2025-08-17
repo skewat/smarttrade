@@ -15,19 +15,18 @@ today = datetime.today().date()
 # Load active orders from file if present
 if os.path.exists(config.ORDERS_FILE):
     try:
-        if os.path.getsize(config.ORDERS_FILE) > 0:  # check non-empty file
-            df = pd.read_csv(config.ORDERS_FILE, index_col=0)
+        df = pd.read_csv(config.ORDERS_FILE, index_col=0)
+        if df.empty or df.columns.empty:
+            logger.warning(f"Empty or invalid CSV file: {config.ORDERS_FILE}")
+            ACTIVE_ORDERS = {}
+        else:
             # Filter out old orders from previous days
             today_str = datetime.today().strftime("%Y-%m-%d")
             df = df[df['timestamp'].str.startswith(today_str, na=False)]
             ACTIVE_ORDERS = df.to_dict(orient='index')
-            logger.info(f"ACTIVE_ORDERS loaded from file '{config.ORDERS_FILE}'. "
-                        f"Found {len(ACTIVE_ORDERS)} active orders for today.")
-        else:
-            logger.warning(f"ORDERS_FILE '{config.ORDERS_FILE}' is empty. Starting with no active orders.")
-            ACTIVE_ORDERS = {}
-    except (pd.errors.EmptyDataError, pd.errors.ParserError, KeyError) as e:
-        logger.error(f"Failed to load ORDERS_FILE '{config.ORDERS_FILE}': {e}. Starting with no active orders.")
+            logger.info(f"ACTIVE_ORDERS loaded from file '{config.ORDERS_FILE}'. Found {len(ACTIVE_ORDERS)} active orders for today.")
+    except pd.errors.EmptyDataError:
+        logger.warning(f"Empty CSV file: {config.ORDERS_FILE}")
         ACTIVE_ORDERS = {}
 else:
     ACTIVE_ORDERS = {}
