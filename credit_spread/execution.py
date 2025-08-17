@@ -8,6 +8,7 @@ import credit_spread as spread
 import numpy as np
 from functools import wraps
 from log_utils import log_function_entry_exit
+import config 
 
 # global state
 SEEN_CANDLES_ENTRY = []
@@ -42,19 +43,25 @@ def run_live(connector, df, c_pos=None, prev_day_trend=None):
 
     df = indicators.add_ema_crossover(df, 'ema_fast', 'ema_slow')
     df['current_trend'] = df['ema_crossover'].replace({None: np.nan}).ffill()
-    df.to_csv('/home/ckewat/options_strategy/smarttrade/credit_spread/atr_ema_indicator.csv', index=False)
+    csv_file = f"{config.ATR_EMA_INDICATOR}"
+    df.to_csv(csv_file, index=False)
 
     current_position = c_pos
     previous_day_trend = prev_day_trend
+    print(df)
 
-    # Filter to today's data only
-    today = pd.Timestamp.now().date()
-    df = df[df['datetime'].dt.date == today]
+    if config.TESTING :
+        df = df.tail(76)
+    else:
+        print('**************    TESTING     ****************')
+        # Filter to today's data only
+        today = pd.Timestamp.now().date()
+        df = df[df['datetime'].dt.date == today]
+        if df.empty:
+            logger.warning("No data for today. Skipping run_live execution.")
+            return current_position, previous_day_trend
+        df = df.tail(1)
 
-    if df.empty:
-        logger.info("No data for today. Skipping run_live execution.")
-        return current_position, previous_day_trend
-    df = df.tail(1)
     for idx, row in df.iterrows():
         row_dict = row.to_dict()
 

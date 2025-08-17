@@ -8,27 +8,34 @@ import pprint
 import core
 from functools import wraps
 from log_utils import log_function_entry_exit
+import config
 
 
 today = datetime.today().date()
-POSITIONS_FILE = f"/home/ckewat/options_strategy/smarttrade/credit_spread/positions_{today}.csv"
-ARCHIVE_FILE = "/home/ckewat/options_strategy/smarttrade/credit_spread/archive_positions.csv"
-ORDERS_FILE = "/home/ckewat/options_strategy/smarttrade/credit_spread/active_orders.csv"
-
 # Load active orders from file if present
-if os.path.exists(ORDERS_FILE):
-    df = pd.read_csv(ORDERS_FILE, index_col=0)
-    # Filter out old orders from previous days
-    today_str = datetime.today().strftime("%Y-%m-%d")
-    df = df[df['timestamp'].str.startswith(today_str, na=False)]
-    ACTIVE_ORDERS = df.to_dict(orient='index')
-    logger.info(f"ACTIVE_ORDERS loaded from file '{ORDERS_FILE}'. Found {len(ACTIVE_ORDERS)} active orders for today.")
+if os.path.exists(config.ORDERS_FILE):
+    try:
+        if os.path.getsize(config.ORDERS_FILE) > 0:  # check non-empty file
+            df = pd.read_csv(config.ORDERS_FILE, index_col=0)
+            # Filter out old orders from previous days
+            today_str = datetime.today().strftime("%Y-%m-%d")
+            df = df[df['timestamp'].str.startswith(today_str, na=False)]
+            ACTIVE_ORDERS = df.to_dict(orient='index')
+            logger.info(f"ACTIVE_ORDERS loaded from file '{config.ORDERS_FILE}'. "
+                        f"Found {len(ACTIVE_ORDERS)} active orders for today.")
+        else:
+            logger.warning(f"ORDERS_FILE '{config.ORDERS_FILE}' is empty. Starting with no active orders.")
+            ACTIVE_ORDERS = {}
+    except (pd.errors.EmptyDataError, pd.errors.ParserError, KeyError) as e:
+        logger.error(f"Failed to load ORDERS_FILE '{config.ORDERS_FILE}': {e}. Starting with no active orders.")
+        ACTIVE_ORDERS = {}
 else:
     ACTIVE_ORDERS = {}
 
+
 @log_function_entry_exit
 def save_active_orders():
-    pd.DataFrame.from_dict(ACTIVE_ORDERS, orient='index').to_csv(ORDERS_FILE)
+    pd.DataFrame.from_dict(ACTIVE_ORDERS, orient='index').to_csv(config.ORDERS_FILE)
 
 
 @log_function_entry_exit
@@ -79,8 +86,8 @@ def fetch_ltp(connector,symbol):
 
 @log_function_entry_exit
 def load_positions():
-    if os.path.exists(POSITIONS_FILE):
-        return pd.read_csv(POSITIONS_FILE)
+    if os.path.exists(config.POSITIONS_FILE):
+        return pd.read_csv(config.POSITIONS_FILE)
     return pd.DataFrame(columns=["spread", "buy_symbol", "buy_price", "buy_qty", "sell_symbol", "sell_price", "sell_qty", "entry_time"])
 
 @log_function_entry_exit
@@ -91,7 +98,7 @@ def save_positions(df, dt):
     if not df.empty :
         archive_positions(df, dt, reason="CLOSED")
     print('Save DF .. position;',df)
-    df.to_csv(POSITIONS_FILE, index=False)
+    df.to_csv(config.POSITIONS_FILE, index=False)
 
 @log_function_entry_exit
 def archive_positions(positions_to_archive, dt , reason="CLOSED"):
@@ -99,8 +106,8 @@ def archive_positions(positions_to_archive, dt , reason="CLOSED"):
     Archive exited positions with timestamp and reason
     """
     # Load previous archive
-    if os.path.exists(ARCHIVE_FILE):
-        archive_df = pd.read_csv(ARCHIVE_FILE)
+    if os.path.exists(config.ARCHIVE_FILE):
+        archive_df = pd.read_csv(config.ARCHIVE_FILE)
     else:
         archive_df = pd.DataFrame(columns=[
             "spread", "buy_symbol", "buy_price", "buy_qty",
@@ -119,7 +126,7 @@ def archive_positions(positions_to_archive, dt , reason="CLOSED"):
         else:
             archive_df = pd.concat([archive_df, positions_to_archive], ignore_index=True)
 
-    archive_df.to_csv(ARCHIVE_FILE, index=False)
+    archive_df.to_csv(config.ARCHIVE_FILE, index=False)
     logger.debug(f"✅ Archived {len(positions_to_archive)} positions to positions_archive.csv")
 
 

@@ -1,9 +1,7 @@
 import os
 import sys
-import csv
-import copy
 import re
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 import time
 import pandas as pd
 from logzero import logger
@@ -26,10 +24,8 @@ from common_utils import (
     angelone,
     smartapi_wrapper,
 )
-# ========================================
-# UTILITY FUNCTIONS
-# ========================================
 
+# UTILITY FUNCTIONS
 @log_function_entry_exit
 def is_within_time_range():
     """Check if current time is within trading hours."""
@@ -43,28 +39,7 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 @log_function_entry_exit
-def write_positions_to_csv(positions, filename, append):
-    """Write positions to CSV."""
-    if not positions:
-        return
-
-    fieldnames = positions[0].data.keys()
-    mode = 'a' if append else 'w'
-    write_header = not append or not os.path.exists(filename)
-
-    with open(filename, mode=mode, newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
-        if write_header:
-            writer.writeheader()
-        for position in positions:
-            writer.writerow(position.data)
-
-
-@log_function_entry_exit
 def convert_to_5min(df):
-
-    # Assuming you've already loaded the DataFrame (df)
-    # Example: df = pd.read_csv("your_file.csv")
 
     # Step 1: Convert 'datetime' column to datetime type
     df['datetime'] = pd.to_datetime(df['datetime'])
@@ -85,18 +60,8 @@ def convert_to_5min(df):
 
     # Step 5: Reset index (optional)
     df_5min.reset_index(inplace=True)
-
     return  df_5min
 
-#def get_ltp(connector, token='99926000', symbol='NIFTY', exchange='NSE'):
-#    """Fetch latest traded price (LTP) from API."""
-#    smart_api = connector.smart_api
-#    wrapper_api = smartapi_wrapper.SmartAPIWrapper(smart_api)
-#    data = wrapper_api.get_ltp(exchange,symbol,token)
-#
-#    return data['data']['ltp']
-
-_previous_ltp: dict[str, float] = {}
 
 @log_function_entry_exit
 def get_ltp( connector, token: str = '99926000', symbol: str = 'NIFTY', exchange: str = 'NSE'):
@@ -108,6 +73,7 @@ def get_ltp( connector, token: str = '99926000', symbol: str = 'NIFTY', exchange
         float: latest traded price
         None: if no data ever available
     """
+    _previous_ltp: dict[str, float] = {}
     smart_api = connector.smart_api
     wrapper_api = smartapi_wrapper.SmartAPIWrapper(smart_api)
 
@@ -141,14 +107,6 @@ def find_valid_expiry(expiries=expiries_of_year.main(2025)):
     return expiry.strftime('%d%b%y').upper() if expiry else None
 
 @log_function_entry_exit
-def force_exit_positions(connector):
-    if is_there_existing_trade():
-        active_positions = get_active_positions()
-        exit_positions = process_option_buy_exit(connector, active_positions)
-        place_order.main(connector, exit_positions, 'EXIT')
-        logger.info('Exited by force.....')
-
-@log_function_entry_exit
 def decode_option_symbol(symbol):
     """
     Decodes an option symbol like NIFTY03JUL2525800CE
@@ -179,9 +137,7 @@ def decode_option_symbol(symbol):
         "strike": strike , #24500
     }
 
-# ========================================
 # Place Order
-# ========================================
 @log_function_entry_exit
 def process_order(connector, trade_info, lots=1):
     """Process entry for single option buying."""
@@ -204,6 +160,4 @@ def process_order(connector, trade_info, lots=1):
     position.set('strategy_tag',STRATEGY_TAG)
 
     place_order.main(connector, position, trade_info['position'])
-    write_positions_to_csv([position], config.ACTIVE_TRADES_CSV, 'w')
-    write_positions_to_csv([position], config.ARCHIVE_TRADES_CSV, 'a')
     return True

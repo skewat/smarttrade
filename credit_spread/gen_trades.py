@@ -30,7 +30,7 @@ from log_utils import log_function_entry_exit
 
 # Setup logger
 today = datetime.today().date()
-logzero.logfile(f"/home/ckewat/options_strategy/smarttrade/credit_spread/atr_strategy_logfile_{today}.log", maxBytes=1e6, backupCount=2)
+logzero.logfile(config.LOG_FILE, maxBytes=1e6, backupCount=2)
 logzero.loglevel(config.LOG_LEVEL if hasattr(config, "LOG_LEVEL") else logzero.INFO)
 
 @log_function_entry_exit
@@ -91,12 +91,11 @@ def main(token, exchange):
     connector.connect()
     smart_api = connector.smart_api
 
-    if not config.SIMULATE:
-        signal.signal(signal.SIGINT, core.signal_handler)
-        if not smart_api:
-            logger.error("Could not connect to broker API. Exiting.")
-            sys.exit(1)
-        logger.info("Connected to broker API.")
+    signal.signal(signal.SIGINT, core.signal_handler)
+    if not smart_api:
+        logger.error("Could not connect to broker API. Exiting.")
+        sys.exit(1)
+    logger.info("Connected to broker API.")
 
     trading_today = False
     try:
@@ -117,6 +116,7 @@ def main(token, exchange):
                     df_5min = core.convert_to_5min(ohlc_df)
 
                     # execute strategy
+                    print(df_5min)
                     current_position, previous_day_trend = run_live(connector, 
                                                                 df_5min,
                                                                 current_position,
