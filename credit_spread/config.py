@@ -15,7 +15,7 @@ today = datetime.today().date()
 datapath = "/home/ckewat/options_strategy/smarttrade/credit_spread"
 
 # Sellect as apropriate 
-TESTING = True # It allows LIVE beyond office hours - test end to end flow ( including order placements )
+TESTING = False # It allows LIVE beyond office hours - test end to end flow ( including order placements )
 
 LOG_LEVEL =  logzero.INFO
 LOG_FILE = os.path.join(datapath,f"atr_strategy_logfile_{today}.log")
