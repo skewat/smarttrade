@@ -44,26 +44,35 @@ def strategy_decision(
     if current_position and row_time not in seen_candles_exit:
         logger.info(f"Profit {row.get('pnl_pct', 0)}, Threshold {profit_threshold}")
         #if row.get('pnl_pct', 0) >= profit_threshold:
-        if row.get('pnl_pct', 0) >= 1200 :
+        if row.get('pnl_pct', 0) >= 1500 :
             signals.append({
                 "action": "EXIT",
                 "position": current_position,
                 "reason": "PROFIT"
             })
+        elif row.get('pnl_pct', 0) <= -1500 : #Added for stop loss
+            signals.append({
+                "action": "EXIT",
+                "position": current_position,
+                "reason": "STOP LOSS"
+            })
+
 
     # Entry logic
     if row_time not in seen_candles_entry and row_time < time(14, 45):
         if row_time == time(9, 20):
             if row['high'] > row['close_daily'] + row['ATR']*0.85 :
-                signals.append({
-                    "action": "ENTER",
-                    "position": "BEAR_CALL"
-                })
+                if ( row['ema_fast'] < row['ema_slow']):
+                    signals.append({
+                        "action": "ENTER",
+                        "position": "BEAR_CALL"
+                    })
             elif row['low'] <  row['close_daily'] - row['ATR']*0.85 :
-                signals.append({
-                    "action": "ENTER",
-                    "position": "BULL_PUT"
-                })
+                if (row['ema_fast'] > row['ema_slow']) :
+                    signals.append({
+                        "action": "ENTER",
+                        "position": "BULL_PUT"
+                    })
             else:
                 if row['ema_fast'] > row['ema_slow']:
                     signals.append({
@@ -77,15 +86,17 @@ def strategy_decision(
                     })
         else:
             if row['high'] > row['close_daily'] + row['ATR']*0.95 :
-                signals.append({
-                    "action": "ENTER",
-                    "position": "BEAR_CALL"
-                })
+                if ( row['ema_fast'] < row['ema_slow']):
+                    signals.append({
+                        "action": "ENTER",
+                        "position": "BEAR_CALL"
+                    })
             elif row['low'] <  row['close_daily'] - row['ATR']*0.95 :
-                signals.append({
-                    "action": "ENTER",
-                    "position": "BULL_PUT"
-                })
+                if (row['ema_fast'] > row['ema_slow']) :
+                    signals.append({
+                        "action": "ENTER",
+                        "position": "BULL_PUT"
+                    })
             elif row['ema_crossover'] == 'bullish':
                 signals.append({
                     "action": "ENTER",
