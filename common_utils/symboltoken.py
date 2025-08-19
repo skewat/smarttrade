@@ -39,6 +39,7 @@ def load_json_data(filename):
         return None
 
 def get_single_symbol_token(name, symbol_type):
+    match = None
     if symbol_type == 'OPTION' :
         match = re.match(r"([A-Z]+)(\d{2}[A-Z]{3}\d{2})(\d+)(CE|PE)", name)
     if match:
@@ -51,6 +52,11 @@ def get_single_symbol_token(name, symbol_type):
                     atm_token = i['token']
                     return atm_token
     else :
+        data = main()
+        for i in data:
+            if i['exch_seg'] == 'NSE' and  i['symbol'] == f"{name}-EQ":
+                token = i['token']
+                return token
         print(f"Invalid symbol {name}")
 
 

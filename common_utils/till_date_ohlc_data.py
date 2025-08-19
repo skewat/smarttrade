@@ -94,7 +94,7 @@ def get_previous_working_day(ref_date):
             continue
         return ref_date
 
-def get_two_dates():
+def get_two_dates(days_apart = 30):
     """
     Get two valid trading dates for historical data download.
 
@@ -105,20 +105,36 @@ def get_two_dates():
     latest_working_day = get_previous_working_day(today)
 
     second_working_day = latest_working_day
-    for _ in range(30):
+    for _ in range(days_apart):
         second_working_day = get_previous_working_day(second_working_day)
 
     return latest_working_day.strftime('%Y-%m-%d'), second_working_day.strftime('%Y-%m-%d')
 
-def get_date_range():
+def get_date_range(days_apart=30):
     """
     Get a date range string for historical data query.
 
     Returns:
         tuple: Start and end datetime strings.
     """
-    date1, date2 = get_two_dates()
+    date1, date2 = get_two_dates(days_apart)
     return f"{date1} 15:30", f"{date2} 09:15"
+
+def historical_data(smartApi,symbol_token,exchange,interval="ONE_DAY",days=30):
+    to_date, from_date = get_date_range(days)
+    try:
+        historicParam = {
+            "exchange": exchange,
+            "symboltoken": symbol_token,
+            "interval": interval,
+            "fromdate": from_date,
+            "todate": to_date
+        }
+        data = smartApi.getCandleData(historicParam)
+        return data
+    except Exception as e:
+        logger.exception(f"Historic API failed: {e}")
+
 
 def fetch_data(smartApi,symbol_token,exchange='NSE'):
     """
