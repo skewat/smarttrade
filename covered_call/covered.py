@@ -6,7 +6,6 @@ import pprint
 import pyotp
 import socket, uuid, time
 
-
 import os
 import sys
 import time
@@ -61,39 +60,13 @@ def implied_volatility(api, symbol):
     atm_volume = float(best[2])
     return iv, atm_volume
 
-def _implied_volatility(api, symbol):
-    """Fetch approximate IV from NSE option chain (ATM options)."""
-    valid_rows = []
-    data = option_greek(api, symbol)
-
-    for r in data:
-        try:
-            iv = float(r.get("impliedVolatility", "0") or 0)
-            delta = float(r.get("delta", "0") or 0)
-            ety = r.get("expiry", "")
-        except (TypeError, ValueError):
-            continue
-
-        if iv <= 0:
-            continue
-
-        valid_rows.append((abs(abs(delta) - 0.5), iv, r))
-
-    if not valid_rows:
-        raise ValueError("No valid rows found with IV > 0")
-
-    # sort by closeness to |delta|=0.5
-    valid_rows.sort(key=lambda x: x[0])
-    best = valid_rows[0][2]
-    print(float(best["impliedVolatility"]))
-    return float(best["impliedVolatility"])
-
 def _historical_data(smart_api, symbol):
     token = symboltoken.get_single_symbol_token(symbol, 'EQ')
     ohlc_df = till_date_ohlc_data.historical_data(smart_api, token, exchange,'ONE_DAY',180)
     if ohlc_df and "data" in ohlc_df and ohlc_df["data"]:
         df = pd.DataFrame(ohlc_df["data"], columns=["datetime", "open", "high", "low", "close", "volume"])
-        return df.set_index("datetime")["close"].astype(float)
+        #return df.set_index("datetime")["close"].astype(float)
+        return df
     return None
 
 def scan_covered_calls(api, symbols):
@@ -102,14 +75,16 @@ def scan_covered_calls(api, symbols):
     for sym in symbols:
         print(f"Scanning {sym}...")
         try:
-            data = _historical_data(smart_api, sym)
+            df = _historical_data(smart_api, sym)
+            data = df.set_index("datetime")["close"].astype(float) 
+            volume =  df.set_index("datetime")["volume"].astype(int)
             hv = historical_volatility(data, window=30)
             iv, atm_volume = implied_volatility(api, sym)
 
             sma20 = data.rolling(20).mean().iloc[-1]
             sma60 = data.rolling(60).mean().iloc[-1]
             price = data.iloc[-1]
-            underlying_vol = data.iloc[-1]  # last day's volume
+            underlying_vol = volume.iloc[-1]  # last day's volume
 
             # Basic scoring logic with volume factor
             score = 0
@@ -122,7 +97,7 @@ def scan_covered_calls(api, symbols):
                 score += 5
 
             # Add major weight for liquidity
-            score += min(atm_volume / 1000, 20)  # normalize ATM volume
+            #score += min(atm_volume / 1000, 20)  # normalize ATM volume
             score += min(underlying_vol / 1e6, 20)  # normalize stock volume
 
             results.append({
@@ -132,7 +107,7 @@ def scan_covered_calls(api, symbols):
                 "IV%": round(iv, 2) if iv else None,
                 "SMA20": round(sma20, 2),
                 "SMA60": round(sma60, 2),
-                "ATM_Volume": int(atm_volume),
+                #"ATM_Volume": int(atm_volume),
                 "Underlying_Volume": int(underlying_vol),
                 "Score": round(score, 2)
             })
@@ -141,47 +116,6 @@ def scan_covered_calls(api, symbols):
 
     df = pd.DataFrame(results)
     print(df)
-    df = df.sort_values("Score", ascending=False).head(5)
-    return df
-
-def _scan_covered_calls(api, symbols):
-    results = []
-    
-    for sym in symbols:
-        print(f"Scanning {sym}...")
-        symbol = sym
-        try:
-            data = _historical_data(smart_api, symbol)
-            hv = historical_volatility(data, window=30)
-            iv = implied_volatility(api,sym)
-            
-            sma20 = data.rolling(20).mean().iloc[-1]
-            sma60 = data.rolling(60).mean().iloc[-1]
-            price = data.iloc[-1]
-            
-            # Basic scoring logic
-            score = 0
-            if iv and hv:
-                if iv > hv:  # premium rich
-                    score += (iv - hv) * 100
-            if sma20 >= sma60:  # uptrend or sideways
-                score += 5
-            if hv < 0.30:  # avoid extremely volatile stocks
-                score += 5
-            
-            results.append({
-                "Symbol": sym,
-                "Price": round(price, 2),
-                "HV%": round(hv*100, 2),
-                "IV%": round(iv, 2) if iv else None,
-                "SMA20": round(sma20, 2),
-                "SMA60": round(sma60, 2),
-                "Score": score
-            })
-        except Exception as e:
-            print(f"Error with {sym}: {e}")
-    
-    df = pd.DataFrame(results)
     df = df.sort_values("Score", ascending=False).head(5)
     return df
 
