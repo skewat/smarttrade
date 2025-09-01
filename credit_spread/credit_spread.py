@@ -9,6 +9,7 @@ import core
 from functools import wraps
 from log_utils import log_function_entry_exit
 import config
+import traceback 
 
 
 today = datetime.today().date()
@@ -96,7 +97,7 @@ def save_positions(df, dt):
     """
     if not df.empty :
         archive_positions(df, dt, reason="CLOSED")
-    print('Save DF .. position;',df)
+    #print('Save DF .. position;',df)
     df.to_csv(config.POSITIONS_FILE, index=False)
 
 @log_function_entry_exit
@@ -230,7 +231,9 @@ def monitor_pnl(connector, spread_name, target_pnl_pct=0.03):
     buy_ltp = fetch_ltp(connector, buy_symbol)
 
     sell_ltp = fetch_ltp(connector, sell_symbol)
-
+    if not buy_ltp or not sell_ltp :
+        logger.warning("Failed to get LTp.")
+        return 0
     entry_credit = sell_price - buy_price
     current_credit = sell_ltp - buy_ltp
 

@@ -5,27 +5,38 @@ from common_utils import holidays
 
 def get_next_expiry(reference_date=None):
     """
-    Returns the next available Thursday expiry date from the reference date.
-    If the Thursday is a holiday, it returns the previous working day.
+    Returns the next available Nifty expiry date from the reference date.
+    - Until Aug 2025: expiry is on Thursday
+    - From Sept 2025 onward: expiry is on Tuesday
+    If expiry day is a holiday, it returns the previous working day.
 
     Parameters:
         reference_date (datetime.datetime): Reference date. Defaults to today.
 
     Returns:
-        str: Expiry date in 'DDMMMYY' format (e.g., '25APR25')
+        str: Expiry date in 'DDMMMYY' format (e.g., '30SEP25')
     """
     if reference_date is None:
         reference_date = datetime.datetime.today()
 
-    # Get next Thursday
-    days_until_thursday = (3 - reference_date.weekday() + 7) % 7
-    next_thursday = reference_date + timedelta(days=days_until_thursday)
+    # Decide expiry weekday based on NSE rule change
+    cutoff_date = datetime.datetime(2025, 9, 1)
+    if reference_date >= cutoff_date:
+        expiry_weekday = 1   # Tuesday
+    else:
+        expiry_weekday = 3   # Thursday
 
-    # Adjust for holidays
-    while holidays.is_holiday(next_thursday.strftime("%Y-%m-%d")):
-        next_thursday -= timedelta(days=1)
+    # Get next expiry weekday
+    days_until_expiry = (expiry_weekday - reference_date.weekday() + 7) % 7
+    if days_until_expiry == 0:  # if today is expiry day, keep today
+        days_until_expiry = 0
+    next_expiry = reference_date + timedelta(days=days_until_expiry)
 
-    return next_thursday.strftime("%d%b%y").upper()
+    # Adjust for holidays (move backward if expiry falls on a holiday)
+    while holidays.is_holiday(next_expiry.strftime("%Y-%m-%d")):
+        next_expiry -= timedelta(days=1)
+
+    return next_expiry.strftime("%d%b%y").upper()
 
 def get_calendar_dates(year):
     """

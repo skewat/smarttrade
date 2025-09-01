@@ -8,6 +8,8 @@ from logzero import logger
 import signal
 from functools import wraps
 from log_utils import log_function_entry_exit
+import traceback
+
 
 # Project Imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -78,8 +80,8 @@ def get_ltp( connector, token: str = '99926000', symbol: str = 'NIFTY', exchange
     wrapper_api = smartapi_wrapper.SmartAPIWrapper(smart_api)
 
     key = f"{exchange}_{symbol}_{token}"
-
     try:
+        #traceback.print_stack()
         data = wrapper_api.get_ltp(exchange, symbol, token)
         ltp = data['data']['ltp']
         _previous_ltp[key] = ltp

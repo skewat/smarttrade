@@ -48,7 +48,7 @@ def run_live(connector, df, c_pos=None, prev_day_trend=None):
 
     current_position = c_pos
     previous_day_trend = prev_day_trend
-    print(df)
+    #print(df)
 
     if config.TESTING :
         df = df.tail(76)

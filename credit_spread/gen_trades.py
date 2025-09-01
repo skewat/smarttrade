@@ -116,7 +116,7 @@ def main(token, exchange):
                     df_5min = core.convert_to_5min(ohlc_df)
 
                     # execute strategy
-                    print(df_5min)
+                    #print(df_5min)
                     current_position, previous_day_trend = run_live(connector, 
                                                                 df_5min,
                                                                 current_position,
