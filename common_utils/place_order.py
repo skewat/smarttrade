@@ -116,10 +116,10 @@ class StrategyManager:
         open_positions = self.smart_api.position()
         if not open_positions or not open_positions['data']:
             return False
-        if not position.data['quantity'] or not data['netqty']:
-            logger.info('There is invalid quantity ')
-            return False
         for data in open_positions['data'] :
+            if not position.data['quantity'] or not data['netqty']:
+                logger.info('There is invalid quantity ')
+                continue
             if position.data['symbol'] == data['tradingsymbol'] and int(data['netqty']) >= int(position.data['quantity']):
                 logger.info('There is valid position to exit')
                 return True
