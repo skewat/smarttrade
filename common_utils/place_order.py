@@ -137,7 +137,7 @@ class StrategyManager:
 
         for position in positions:
             if self._open_position(position):
-                order = self._place_order(position)
+                order = self._place_order(position, 'EXIT')
             else:
                 logger.warning('There is no valid position to exit')
 
@@ -159,7 +159,7 @@ class StrategyManager:
                 "quantity": position.get("quantity"),
                 "ordertag":  position.get("strategy_tag")
             }
-        if position_type == "STOPLOSS":
+        elif position_type == "STOPLOSS":
             logger.info("Placing STOPLOSS order")
             if  position.get("order_type") == "BUY" : 
                 price =  int(position.get("price")) + 1
@@ -239,9 +239,9 @@ def main(connector, positions = None,position_type=None ,target=0):
     smart_api = connector.smart_api
     manager = StrategyManager(smart_api)
     if position_type == 'ENTRY' :
-        manager.take_entry_positions(positions)
+        manager.take_entry_positions(positions,position_type)
     elif position_type == 'EXIT' :
-        manager.exit_positions(positions)
+        manager.exit_positions(positions,position_type)
     elif position_type == 'TARGET' :
         positions = manager.target_order(positions,target)
         if positions :
